@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/ywrloefq/virtualenv/public_html/gm_v4/3.9/bin/python3
 """
 Passenger WSGI entry point for cPanel hosting
 This file is required by Phusion Passenger to run the Flask app
@@ -7,8 +7,8 @@ This file is required by Phusion Passenger to run the Flask app
 import sys
 import os
 
-# Add the backend directory to Python path
-INTERP = "/usr/bin/python3"
+# Use virtualenv Python
+INTERP = "/home/ywrloefq/virtualenv/public_html/gm_v4/3.9/bin/python3"
 if sys.executable != INTERP:
     os.execl(INTERP, INTERP, *sys.argv)
 
