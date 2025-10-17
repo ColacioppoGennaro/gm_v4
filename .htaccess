@@ -1,24 +1,10 @@
 # SmartLife Organizer v4 - Apache Configuration
 
+# Passenger handles everything automatically via passenger_wsgi.py
+# No need for custom rewrite rules when using cPanel Python App
+
 # Disable directory browsing
-Options -Indexes +ExecCGI
-
-# Enable CGI for Python
-AddHandler cgi-script .py
-
-# Enable rewrite engine
-RewriteEngine On
-RewriteBase /gm_v4/
-
-# Try Passenger first, fallback to CGI
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/(.*)$ index.py/$1 [QSA,L]
-
-# Fallback for root
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.py/$1 [QSA,L]
+Options -Indexes
 
 # Security headers
 <IfModule mod_headers.c>
