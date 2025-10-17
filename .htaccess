@@ -1,16 +1,24 @@
 # SmartLife Organizer v4 - Apache Configuration
 
 # Disable directory browsing
-Options -Indexes
+Options -Indexes +ExecCGI
+
+# Enable CGI for Python
+AddHandler cgi-script .py
 
 # Enable rewrite engine
 RewriteEngine On
 RewriteBase /gm_v4/
 
-# Redirect all requests to Python WSGI application
+# Try Passenger first, fallback to CGI
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ passenger_wsgi.py/$1 [QSA,L]
+RewriteRule ^api/(.*)$ index.py/$1 [QSA,L]
+
+# Fallback for root
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.py/$1 [QSA,L]
 
 # Security headers
 <IfModule mod_headers.c>
