@@ -1,30 +1,26 @@
 #!/usr/bin/env python3
 """
-Simple test file to verify Python is working
+Simple CGI test
 """
+print("Content-Type: text/html\n")
+print("<html><body>")
+print("<h1>Python CGI Works!</h1>")
+print("<p>Python version check...</p>")
 
-def application(environ, start_response):
-    """WSGI application for testing"""
-    status = '200 OK'
-    
-    output = b'''
-    <html>
-    <head><title>Python Test</title></head>
-    <body>
-        <h1>Python is Working!</h1>
-        <p>Environment: Production</p>
-        <p>If you see this, Python/WSGI is configured correctly.</p>
-    </body>
-    </html>
-    '''
-    
-    response_headers = [
-        ('Content-type', 'text/html'),
-        ('Content-Length', str(len(output)))
-    ]
-    
-    start_response(status, response_headers)
-    return [output]
+import sys
+print(f"<p>Python: {sys.version}</p>")
+print(f"<p>Path: {sys.executable}</p>")
 
-if __name__ == '__main__':
-    print("Test OK")
+try:
+    import flask
+    print(f"<p>✅ Flask installed: {flask.__version__}</p>")
+except ImportError as e:
+    print(f"<p>❌ Flask NOT installed: {e}</p>")
+
+try:
+    import pymysql
+    print(f"<p>✅ PyMySQL installed</p>")
+except ImportError as e:
+    print(f"<p>❌ PyMySQL NOT installed: {e}</p>")
+
+print("</body></html>")
