@@ -382,8 +382,14 @@
         }
 
         function showAuthTab(tab) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            // Update active tab
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach((t, index) => {
+                t.classList.remove('active');
+                if ((tab === 'login' && index === 0) || (tab === 'register' && index === 1)) {
+                    t.classList.add('active');
+                }
+            });
             
             if (tab === 'login') {
                 document.getElementById('loginForm').classList.remove('hidden');
