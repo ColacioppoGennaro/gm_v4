@@ -306,14 +306,13 @@ def create_event(current_user):
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
-        event_id = db.execute_query(
+        event_id = db.insert_and_get_id(
             query,
             [
                 current_user['id'], title, description, start_time, end_time,
                 location, category_id, is_all_day, recurrence_rule,
                 reminder_minutes, color
-            ],
-            commit=True
+            ]
         )
         
         # Get created event
@@ -443,7 +442,7 @@ def update_event(current_user, event_id):
         query = f"UPDATE events SET {', '.join(update_fields)} WHERE id = %s"
         params.append(event_id)
         
-        db.execute_query(query, params, commit=True)
+        db.execute_query(query, params, fetch_all=False)
         
         # Get updated event
         updated_event = db.execute_query(
@@ -504,7 +503,7 @@ def delete_event(current_user, event_id):
         db.execute_query(
             "UPDATE events SET deleted_at = NOW() WHERE id = %s",
             [event_id],
-            commit=True
+            fetch_all=False
         )
         
         logger.info(f"Event deleted: {event_id} by user {current_user['id']}")
