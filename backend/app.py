@@ -5,17 +5,21 @@ Main Flask application for SmartLife Organizer
 from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
+import sys
 from datetime import datetime
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 # Import routes
 from modules.routes.auth import auth_bp
 from modules.routes.events import events_bp
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 
 def create_app():
     """Create and configure the Flask application"""
@@ -26,12 +30,28 @@ def create_app():
     from config import Config
     app.config.from_object(Config)
     
+    # Set debug logging
+    app.logger.setLevel(logging.DEBUG)
+    
     # Enable CORS for all origins (restrict in production)
     CORS(app, origins=["*"], supports_credentials=True)
     
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(events_bp)
+    
+    # Global error handler - CATCH ALL EXCEPTIONS
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        app.logger.exception("⚠️ UNHANDLED EXCEPTION:")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'type': type(e).__name__,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
     
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
