@@ -13,8 +13,15 @@ sys.path.insert(0, os.path.join(current_dir, 'backend'))
 # Change to app directory
 os.chdir(current_dir)
 
-# Import Flask app
-from backend.app import app as application
+# Import Flask app - we use the pre-created instance
+try:
+    from backend.app import app as application
+except ImportError as e:
+    # Fallback: show error
+    def application(environ, start_response):
+        start_response('500 Internal Server Error', [('Content-Type','text/plain')])
+        msg = f'Error importing Flask app: {str(e)}'.encode('utf-8')
+        return [msg]
 
 if __name__ == '__main__':
     application.run()
