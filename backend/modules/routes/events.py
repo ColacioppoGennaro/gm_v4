@@ -77,12 +77,20 @@ def get_events(current_user):
         # Execute query
         events = db.execute_query(query, params)
         
+        # Handle None or empty results
+        if events is None:
+            events = []
+        
         # Serialize datetime fields
         for event in events:
-            event['start_time'] = serialize_datetime(event['start_time'])
-            event['end_time'] = serialize_datetime(event['end_time'])
-            event['created_at'] = serialize_datetime(event['created_at'])
-            event['updated_at'] = serialize_datetime(event['updated_at'])
+            if event.get('start_time'):
+                event['start_time'] = serialize_datetime(event['start_time'])
+            if event.get('end_time'):
+                event['end_time'] = serialize_datetime(event['end_time'])
+            if event.get('created_at'):
+                event['created_at'] = serialize_datetime(event['created_at'])
+            if event.get('updated_at'):
+                event['updated_at'] = serialize_datetime(event['updated_at'])
         
         return jsonify(create_response(
             data={
@@ -99,10 +107,12 @@ def get_events(current_user):
         
     except Exception as e:
         logger.error(f"Error getting events: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify(create_response(
             error="Failed to get events",
             status_code=500
-        ))
+        )), 500
 
 
 @events_bp.route('/today', methods=['GET'])

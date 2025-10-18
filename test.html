@@ -361,7 +361,7 @@
                     <label>Colore</label>
                     <input type="color" id="eventColor" value="#667eea">
                 </div>
-                <button class="btn" onclick="createEvent()">Salva Evento</button>
+                <button class="btn" onclick="saveNewEvent()">Salva Evento</button>
                 <button class="btn btn-secondary" onclick="hideCreateEventForm()">Annulla</button>
             </div>
 
@@ -607,7 +607,7 @@
             document.getElementById('eventLocation').value = '';
         }
 
-        async function createEvent() {
+        async function saveNewEvent() {
             const title = document.getElementById('eventTitle').value;
             const description = document.getElementById('eventDescription').value;
             const startTime = document.getElementById('eventStartTime').value;
