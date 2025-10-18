@@ -105,14 +105,14 @@ def login():
             return jsonify(create_response(
                 error="Invalid credentials",
                 status_code=401
-            ))
+            )), 401
         
-        # Check if email is verified
-        if not user['email_verified']:
-            return jsonify(create_response(
-                error="Email not verified. Please check your email and verify your account.",
-                status_code=403
-            ))
+        # TEMPORANEO: Skip email verification check per sviluppo
+        # if not user['email_verified']:
+        #     return jsonify(create_response(
+        #         error="Email not verified. Please check your email and verify your account.",
+        #         status_code=403
+        #     )), 403
         
         # Verify password
         if not AuthManager.verify_password(password, user['password_hash']):
