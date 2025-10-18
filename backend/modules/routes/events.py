@@ -315,6 +315,11 @@ def create_event(current_user):
             ]
         )
         
+        logger.info(f"Event inserted with ID: {event_id}")
+        
+        if not event_id:
+            raise Exception("Failed to get event ID after insert")
+        
         # Get created event
         created_event = db.execute_query(
             """
@@ -331,11 +336,20 @@ def create_event(current_user):
             fetch_one=True
         )
         
+        logger.info(f"Retrieved created event: {created_event}")
+        
+        if not created_event:
+            raise Exception(f"Failed to retrieve created event with ID {event_id}")
+        
         # Serialize datetime
-        created_event['start_time'] = serialize_datetime(created_event['start_time'])
-        created_event['end_time'] = serialize_datetime(created_event['end_time'])
-        created_event['created_at'] = serialize_datetime(created_event['created_at'])
-        created_event['updated_at'] = serialize_datetime(created_event['updated_at'])
+        if created_event.get('start_time'):
+            created_event['start_time'] = serialize_datetime(created_event['start_time'])
+        if created_event.get('end_time'):
+            created_event['end_time'] = serialize_datetime(created_event['end_time'])
+        if created_event.get('created_at'):
+            created_event['created_at'] = serialize_datetime(created_event['created_at'])
+        if created_event.get('updated_at'):
+            created_event['updated_at'] = serialize_datetime(created_event['updated_at'])
         
         logger.info(f"Event created: {event_id} by user {current_user['id']}")
         
@@ -347,10 +361,12 @@ def create_event(current_user):
         
     except Exception as e:
         logger.error(f"Error creating event: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify(create_response(
-            error="Failed to create event",
+            error=f"Failed to create event: {str(e)}",
             status_code=500
-        ))
+        )), 500
 
 
 @events_bp.route('/<event_id>', methods=['PUT'])
