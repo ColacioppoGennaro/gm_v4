@@ -288,10 +288,10 @@ def reset_password():
 
 @auth_bp.route('/me', methods=['GET'])
 @require_auth
-def get_current_user():
+def get_current_user(current_user):
     """Get current user info"""
     try:
-        user = request.current_user
+        user = current_user
         
         user_data = {
             'id': user['id'],
@@ -318,11 +318,11 @@ def get_current_user():
 
 @auth_bp.route('/update-profile', methods=['PUT'])
 @require_auth
-def update_profile():
+def update_profile(current_user):
     """Update user profile"""
     try:
         data = request.get_json()
-        user_id = request.current_user['id']
+        user_id = current_user['id']
         
         allowed_fields = ['notification_preferences', 'onboarding_completed']
         update_fields = []
