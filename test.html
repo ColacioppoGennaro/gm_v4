@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartLife Organizer - Test API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            margin-bottom: 20px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .alert {
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .user-info strong {
+            color: #667eea;
+        }
+        
+        .event-list {
+            display: grid;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .event-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+        
+        .event-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateX(5px);
+        }
+        
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .event-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .event-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 5px 0;
+        }
+        
+        .event-description {
+            color: #555;
+            margin: 10px 0;
+        }
+        
+        .event-actions {
+            margin-top: 10px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            opacity: 0.3;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .event-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .event-actions {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 SmartLife Organizer</h1>
+            <p>Test API v4.0 - Eventi e Autenticazione</p>
+        </div>
+
+        <!-- Auth Section -->
+        <div id="authSection" class="card">
+            <h2>🔐 Autenticazione</h2>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="showAuthTab('login')">Login</button>
+                <button class="tab" onclick="showAuthTab('register')">Registrazione</button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" placeholder="test@example.com" value="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Password123!" value="Password123!">
+                </div>
+                <button class="btn" onclick="login()">Login</button>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="hidden">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="registerEmail" placeholder="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="registerPassword" placeholder="Password123!">
+                </div>
+                <div class="form-group">
+                    <label>Conferma Password</label>
+                    <input type="password" id="registerPasswordConfirm" placeholder="Password123!">
+                </div>
+                <button class="btn" onclick="register()">Registrati</button>
+            </div>
+
+            <div id="authMessage"></div>
+        </div>
+
+        <!-- User Info (hidden by default) -->
+        <div id="userSection" class="card hidden">
+            <h2>👤 Profilo Utente</h2>
+            <div class="user-info" id="userInfo"></div>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+
+        <!-- Events Section (hidden by default) -->
+        <div id="eventsSection" class="card hidden">
+            <h2>📅 I Miei Eventi</h2>
+            
+            <button class="btn" onclick="showCreateEventForm()">+ Nuovo Evento</button>
+            <button class="btn btn-secondary" onclick="loadEvents()">🔄 Ricarica</button>
+            
+            <!-- Create Event Form -->
+            <div id="createEventForm" class="hidden" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                <h3 style="margin-bottom: 15px;">Crea Nuovo Evento</h3>
+                <div class="form-group">
+                    <label>Titolo *</label>
+                    <input type="text" id="eventTitle" placeholder="Es: Riunione importante">
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <textarea id="eventDescription" placeholder="Dettagli evento..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Data/Ora Inizio *</label>
+                    <input type="datetime-local" id="eventStartTime">
+                </div>
+                <div class="form-group">
+                    <label>Data/Ora Fine *</label>
+                    <input type="datetime-local" id="eventEndTime">
+                </div>
+                <div class="form-group">
+                    <label>Luogo</label>
+                    <input type="text" id="eventLocation" placeholder="Es: Ufficio, Via Roma 1">
+                </div>
+                <div class="form-group">
+                    <label>Colore</label>
+                    <input type="color" id="eventColor" value="#667eea">
+                </div>
+                <button class="btn" onclick="createEvent()">Salva Evento</button>
+                <button class="btn btn-secondary" onclick="hideCreateEventForm()">Annulla</button>
+            </div>
+
+            <div id="eventsMessage"></div>
+            
+            <div id="eventsList" class="event-list"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://gruppogea.net/gm_v4/api';
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = null;
+
+        // Initialize
+        if (authToken) {
+            checkAuth();
+        }
+
+        function showAuthTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            if (tab === 'login') {
+                document.getElementById('loginForm').classList.remove('hidden');
+                document.getElementById('registerForm').classList.add('hidden');
+            } else {
+                document.getElementById('loginForm').classList.add('hidden');
+                document.getElementById('registerForm').classList.remove('hidden');
+            }
+        }
+
+        async function register() {
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, password_confirm: passwordConfirm })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('authMessage', data.message, 'success');
+                    // Auto switch to login
+                    setTimeout(() => {
+                        showAuthTab('login');
+                        document.getElementById('loginEmail').value = email;
+                    }, 2000);
+                } else {
+                    showMessage('authMessage', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('authMessage', 'Errore di connessione: ' + error.message, 'error');
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    authToken = data.data.token;
+                    currentUser = data.data.user;
+                    localStorage.setItem('authToken', authToken);
+                    
+                    showMessage('authMessage', 'Login effettuato con successo!', 'success');
+                    
+                    // Show user section and events
+                    setTimeout(() => {
+                        document.getElementById('authSection').classList.add('hidden');
+                        document.getElementById('userSection').classList.remove('hidden');
+                        document.getElementById('eventsSection').classList.remove('hidden');
+                        showUserInfo();
+                        loadEvents();
+                    }, 1000);
+                } else {
+                    showMessage('authMessage', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('authMessage', 'Errore di connessione: ' + error.message, 'error');
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                const response = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentUser = data.data;
+                    document.getElementById('authSection').classList.add('hidden');
+                    document.getElementById('userSection').classList.remove('hidden');
+                    document.getElementById('eventsSection').classList.remove('hidden');
+                    showUserInfo();
+                    loadEvents();
+                } else {
+                    logout();
+                }
+            } catch (error) {
+                logout();
+            }
+        }
+
+        function showUserInfo() {
+            document.getElementById('userInfo').innerHTML = `
+                <div><strong>Email:</strong> ${currentUser.email}</div>
+                <div><strong>User ID:</strong> ${currentUser.id}</div>
+                <div><strong>Registrato:</strong> ${new Date(currentUser.created_at).toLocaleDateString('it-IT')}</div>
+            `;
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('userSection').classList.add('hidden');
+            document.getElementById('eventsSection').classList.add('hidden');
+        }
+
+        async function loadEvents() {
+            showMessage('eventsMessage', 'Caricamento eventi...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/events`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayEvents(data.data.events);
+                    showMessage('eventsMessage', `Trovati ${data.data.events.length} eventi`, 'success');
+                } else {
+                    showMessage('eventsMessage', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('eventsMessage', 'Errore caricamento: ' + error.message, 'error');
+            }
+        }
+
+        function displayEvents(events) {
+            const list = document.getElementById('eventsList');
+            
+            if (events.length === 0) {
+                list.innerHTML = `
+                    <div class="empty-state">
+                        <div style="font-size: 3rem;">📅</div>
+                        <p>Nessun evento trovato</p>
+                        <p style="font-size: 0.9rem; margin-top: 10px;">Crea il tuo primo evento!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML = events.map(event => `
+                <div class="event-item" style="border-left-color: ${event.color}">
+                    <div class="event-header">
+                        <div class="event-title">${event.title}</div>
+                        <div class="event-actions">
+                            <button class="btn btn-danger" onclick="deleteEvent('${event.id}')">🗑️ Elimina</button>
+                        </div>
+                    </div>
+                    ${event.description ? `<div class="event-description">${event.description}</div>` : ''}
+                    <div class="event-meta">📍 ${event.location || 'Nessuna località'}</div>
+                    <div class="event-meta">🕐 Inizio: ${formatDateTime(event.start_time)}</div>
+                    <div class="event-meta">🕐 Fine: ${formatDateTime(event.end_time)}</div>
+                    ${event.category_name ? `<div class="event-meta">🏷️ ${event.category_name}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function showCreateEventForm() {
+            document.getElementById('createEventForm').classList.remove('hidden');
+            
+            // Set default dates (today + 1 hour, + 2 hours)
+            const now = new Date();
+            const start = new Date(now.getTime() + 60*60*1000);
+            const end = new Date(now.getTime() + 120*60*1000);
+            
+            document.getElementById('eventStartTime').value = formatDateTimeInput(start);
+            document.getElementById('eventEndTime').value = formatDateTimeInput(end);
+        }
+
+        function hideCreateEventForm() {
+            document.getElementById('createEventForm').classList.add('hidden');
+            // Clear form
+            document.getElementById('eventTitle').value = '';
+            document.getElementById('eventDescription').value = '';
+            document.getElementById('eventLocation').value = '';
+        }
+
+        async function createEvent() {
+            const title = document.getElementById('eventTitle').value;
+            const description = document.getElementById('eventDescription').value;
+            const startTime = document.getElementById('eventStartTime').value;
+            const endTime = document.getElementById('eventEndTime').value;
+            const location = document.getElementById('eventLocation').value;
+            const color = document.getElementById('eventColor').value;
+
+            if (!title || !startTime || !endTime) {
+                showMessage('eventsMessage', 'Compila tutti i campi obbligatori!', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        start_time: new Date(startTime).toISOString(),
+                        end_time: new Date(endTime).toISOString(),
+                        location,
+                        color
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('eventsMessage', 'Evento creato con successo!', 'success');
+                    hideCreateEventForm();
+                    loadEvents();
+                } else {
+                    showMessage('eventsMessage', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('eventsMessage', 'Errore creazione: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteEvent(eventId) {
+            if (!confirm('Sei sicuro di voler eliminare questo evento?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/events/${eventId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showMessage('eventsMessage', 'Evento eliminato!', 'success');
+                    loadEvents();
+                } else {
+                    showMessage('eventsMessage', data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('eventsMessage', 'Errore eliminazione: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                if (type === 'success' || type === 'info') {
+                    el.innerHTML = '';
+                }
+            }, 5000);
+        }
+
+        function formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString('it-IT', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatDateTimeInput(date) {
+            return date.toISOString().slice(0, 16);
+        }
+    </script>
+</body>
+</html>
