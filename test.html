@@ -405,14 +405,30 @@
             const password = document.getElementById('registerPassword').value;
             const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
 
+            console.log('Tentativo registrazione:', { email, password: '***', passwordConfirm: '***' });
+
+            if (!email || !password || !passwordConfirm) {
+                showMessage('authMessage', 'Compila tutti i campi!', 'error');
+                return;
+            }
+
+            if (password !== passwordConfirm) {
+                showMessage('authMessage', 'Le password non coincidono!', 'error');
+                return;
+            }
+
             try {
+                showMessage('authMessage', 'Registrazione in corso...', 'info');
+                
                 const response = await fetch(`${API_BASE}/auth/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password, password_confirm: passwordConfirm })
                 });
 
+                console.log('Response status:', response.status);
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (data.success) {
                     showMessage('authMessage', data.message, 'success');
@@ -422,9 +438,10 @@
                         document.getElementById('loginEmail').value = email;
                     }, 2000);
                 } else {
-                    showMessage('authMessage', data.error, 'error');
+                    showMessage('authMessage', data.error || 'Errore durante la registrazione', 'error');
                 }
             } catch (error) {
+                console.error('Errore registrazione:', error);
                 showMessage('authMessage', 'Errore di connessione: ' + error.message, 'error');
             }
         }
@@ -433,14 +450,25 @@
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
 
+            console.log('Tentativo login:', { email, password: '***' });
+
+            if (!email || !password) {
+                showMessage('authMessage', 'Compila tutti i campi!', 'error');
+                return;
+            }
+
             try {
+                showMessage('authMessage', 'Login in corso...', 'info');
+                
                 const response = await fetch(`${API_BASE}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
 
+                console.log('Response status:', response.status);
                 const data = await response.json();
+                console.log('Response data:', data);
 
                 if (data.success) {
                     authToken = data.data.token;
@@ -458,9 +486,10 @@
                         loadEvents();
                     }, 1000);
                 } else {
-                    showMessage('authMessage', data.error, 'error');
+                    showMessage('authMessage', data.error || 'Credenziali non valide', 'error');
                 }
             } catch (error) {
+                console.error('Errore login:', error);
                 showMessage('authMessage', 'Errore di connessione: ' + error.message, 'error');
             }
         }
