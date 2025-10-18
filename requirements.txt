@@ -1,6 +1,35 @@
-Flask
-PyMySQL
-bcrypt
-PyJWT
-python-dotenv
-flask-cors
+# --- Stack Flask 2.x stabile per Py3.9 ---
+Flask==2.3.3
+Werkzeug==2.3.7
+Jinja2==3.1.4
+itsdangerous==2.1.2
+MarkupSafe==2.1.5
+click==8.1.7
+flask-cors==3.0.10
+
+# --- DB / Auth / JWT ---
+PyMySQL==1.1.1
+bcrypt==4.0.1
+PyJWT==2.9.0
+python-dotenv==1.0.1
+email-validator==2.2.0
+marshmallow==3.21.3
+
+# --- HTTP / immagini ---
+requests==2.32.3
+Pillow==10.4.0
+
+# --- Crypto / push ---
+cryptography==41.0.7
+pywebpush==1.14.0
+
+# --- Google (client + oauth) ---
+google-auth==2.35.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.149.0
+
+# --- Stripe ---
+stripe==5.6.0
+
+# --- WSGI ---
+gunicorn==20.1.0
