@@ -9,6 +9,7 @@ from datetime import datetime
 
 # Import routes
 from modules.routes.auth import auth_bp
+from modules.routes.events import events_bp
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(auth_bp)
+    app.register_blueprint(events_bp)
     
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
