@@ -134,7 +134,8 @@ def create_response(data=None, message=None, status_code=200, error=None):
     response['success'] = status_code < 400
     response['timestamp'] = datetime.utcnow().isoformat()
     
-    return response, status_code
+    # Return only the dict - Flask will handle status code via jsonify
+    return response
 
 def validate_required_fields(data, required_fields):
     """Validate that all required fields are present"""

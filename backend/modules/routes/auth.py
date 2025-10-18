@@ -40,14 +40,14 @@ def register():
             return jsonify(create_response(
                 error=message,
                 status_code=400
-            ))
+            )), 400
         
         # Check password confirmation
         if password != password_confirm:
             return jsonify(create_response(
                 error="Passwords do not match",
                 status_code=400
-            ))
+            )), 400
         
         # Check if email already exists
         existing_user = AuthManager.get_user_by_email(email)
@@ -55,7 +55,7 @@ def register():
             return jsonify(create_response(
                 error="Email already registered",
                 status_code=409
-            ))
+            )), 409
         
         # Create user
         user_data = AuthManager.create_user(email, password)
@@ -73,19 +73,19 @@ def register():
         return jsonify(create_response(
             message="Registration successful. Please check your email to verify your account.",
             status_code=201
-        ))
+        )), 201
         
     except ValueError as e:
         return jsonify(create_response(
             error=str(e),
             status_code=400
-        ))
+        )), 400
     except Exception as e:
         logger.error(f"Registration failed: {str(e)}")
         return jsonify(create_response(
             error="Registration failed. Please try again.",
             status_code=500
-        ))
+        )), 500
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
