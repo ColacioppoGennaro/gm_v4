@@ -3,9 +3,9 @@ Authentication routes for SmartLife Organizer
 """
 
 from flask import Blueprint, request, jsonify
-from app.utils.auth import AuthManager, require_auth
-from app.utils.database import create_response, validate_required_fields
-from app.services.email_service import EmailService
+from modules.utils.auth import AuthManager, require_auth
+from modules.utils.database import create_response, validate_required_fields
+from modules.services.email_service import EmailService
 import logging
 
 # Create blueprint
@@ -345,7 +345,7 @@ def update_profile():
             ))
         
         # Update user
-        from app.utils.database import db
+        from modules.utils.database import db
         query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = %s"
         update_values.append(user_id)
         

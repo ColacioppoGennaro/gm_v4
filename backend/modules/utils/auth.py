@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, current_app
 from config import Config
-from app.utils.database import db, generate_uuid
+from modules.utils.database import db, generate_uuid
 
 class AuthManager:
     """Handles authentication operations"""
