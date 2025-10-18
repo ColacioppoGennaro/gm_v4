@@ -13,9 +13,11 @@ sys.path.insert(0, os.path.join(current_dir, 'backend'))
 # Change to app directory
 os.chdir(current_dir)
 
-# Import Flask app - we use the pre-created instance
+# Import Flask app from backend/app.py (not backend/app/__init__.py)
 try:
-    from backend.app import app as application
+    # Import the module directly
+    import backend.app as app_module
+    application = app_module.app
 except ImportError as e:
     # Fallback: show error
     def application(environ, start_response):
