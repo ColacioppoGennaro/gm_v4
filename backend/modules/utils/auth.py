@@ -215,7 +215,8 @@ def require_auth(f):
         except Exception as e:
             return jsonify({'error': 'Authentication failed', 'success': False}), 401
         
-        return f(*args, **kwargs)
+        # Pass current_user as first argument to the decorated function
+        return f(current_user, *args, **kwargs)
     
     return decorated_function
 
