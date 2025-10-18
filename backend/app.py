@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 
 # Import routes
-from app.routes.auth import auth_bp
+from modules.routes.auth import auth_bp
 
 # Configure logging
 logging.basicConfig(
