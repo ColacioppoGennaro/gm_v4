@@ -67,7 +67,8 @@ def get_events(current_user):
         
         # Get total count
         count_query = query.replace('SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon', 'SELECT COUNT(*)')
-        total = db.execute_query(count_query, params, fetch_one=True)['COUNT(*)']
+        count_result = db.execute_query(count_query, params, fetch_one=True)
+        total = count_result['COUNT(*)'] if count_result else 0
         
         # Apply pagination
         offset = (page - 1) * per_page
