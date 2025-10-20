@@ -1,0 +1,731 @@
+import React, { useState, useEffect, useRef, useMemo, ChangeEvent, useCallback } from 'react';
+import { Event, Category, Recurrence, EventStatus } from '../types';
+import { Icons } from './Icons';
+import { REMINDER_OPTIONS, RECURRENCE_OPTIONS } from '../constants';
+import { GoogleGenAI, LiveSession, LiveServerMessage, Modality, Blob, Type, FunctionDeclaration } from '@google/genai';
+import { apiService } from '../services/apiService';
+
+// --- Audio Utility Functions ---
+function decode(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+function encode(bytes: Uint8Array) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function createBlob(data: Float32Array): Blob {
+  const l = data.length;
+  const int16 = new Int16Array(l);
+  for (let i = 0; i < l; i++) {
+    int16[i] = data[i] * 32768;
+  }
+  return {
+    data: encode(new Uint8Array(int16.buffer)),
+    mimeType: 'audio/pcm;rate=16000',
+  };
+}
+
+// --- Component ---
+
+interface EventModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  event?: Event;
+  categories: Category[];
+  onSave: (eventData: any) => Promise<any>;
+  onDelete: (eventId: string) => void;
+  defaultDate?: Date;
+  aiMode?: boolean;
+}
+
+const COLORS = ['#3B82F6', '#10B981', '#EF4444', '#F97316', '#8B5CF6', '#F59E0B', '#EC4899'];
+
+const toLocalISOString = (date: Date) => {
+    const tzoffset = date.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(date.getTime() - tzoffset).toISOString().slice(0, -1);
+    return localISOTime.slice(0, 16);
+};
+
+interface ConversationMessage {
+    role: 'user' | 'ai';
+    content: string;
+}
+
+const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categories, onSave, onDelete, defaultDate, aiMode }) => {
+  
+  const getInitialFormData = useCallback(() => {
+    const baseDate = defaultDate || new Date();
+    
+    // Base structure for a new event
+    const defaultNewEvent = {
+      title: '',
+      start_datetime: toLocalISOString(baseDate),
+      end_datetime: toLocalISOString(new Date(baseDate.getTime() + 60 * 60 * 1000)),
+      amount: undefined,
+      category_id: categories[0]?.id || '',
+      reminders: [],
+      description: '',
+      recurrence: 'none' as Recurrence,
+      color: undefined,
+      status: EventStatus.Pending,
+      has_document: false,
+    };
+
+    if (event) {
+      return {
+        ...event,
+        recurrence: event.recurrence || 'none',
+        start_datetime: event.start_datetime ? toLocalISOString(new Date(event.start_datetime)) : '',
+        end_datetime: event.end_datetime ? toLocalISOString(new Date(event.end_datetime)) : '',
+      };
+    }
+    
+    return defaultNewEvent;
+  }, [event, defaultDate, categories]);
+
+  const [formData, setFormData] = useState<Partial<Event>>(getInitialFormData());
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  
+  // --- AI State ---
+  const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
+  const inputAudioContextRef = useRef<AudioContext>();
+  const outputAudioContextRef = useRef<AudioContext>();
+  const mediaStreamRef = useRef<MediaStream>();
+  const scriptProcessorRef = useRef<ScriptProcessorNode>();
+  const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode>();
+  const nextStartTimeRef = useRef(0);
+  const sourcesRef = useRef(new Set<AudioBufferSourceNode>());
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const aiTextInputRef = useRef<HTMLInputElement>(null);
+  
+  const [aiStatus, setAiStatus] = useState<'idle' | 'connecting' | 'listening' | 'speaking' | 'thinking' | 'error'>('idle');
+  const [conversation, setConversation] = useState<ConversationMessage[]>([{ role: 'ai', content: 'Ciao! Come posso aiutarti?' }]);
+  const [aiTextInput, setAiTextInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const formDataRef = useRef(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  const handleSave = useCallback(async () => {
+    const currentFormData = formDataRef.current;
+    if (!currentFormData.title || !currentFormData.category_id || !currentFormData.start_datetime) {
+        console.warn("Salvataggio abortito, campi obbligatori mancanti.", { currentFormData });
+        return;
+    }
+    if (isSaving) return;
+    setIsSaving(true);
+    const submissionData = {
+        ...currentFormData,
+        start_datetime: new Date(currentFormData.start_datetime!).toISOString(),
+        end_datetime: currentFormData.end_datetime ? new Date(currentFormData.end_datetime).toISOString() : undefined,
+    };
+    try {
+        await onSave(submissionData);
+        onClose();
+    } catch (error) {
+        console.error("Errore nel salvataggio dell'evento:", error);
+    } finally {
+        setIsSaving(false);
+    }
+  }, [onSave, onClose, isSaving]);
+  
+  const handleSaveRef = useRef(handleSave);
+  useEffect(() => {
+    handleSaveRef.current = handleSave;
+  }, [handleSave]);
+
+  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi conferma all'utente (es. \"Ho inserito tutto. È corretto?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
+
+  const updateEventDetailsFunction: FunctionDeclaration = useMemo(() => ({
+    name: 'update_event_details',
+    description: "Aggiorna i dettagli di un evento nel form. Usa questa funzione per riempire i campi man mano che ottieni le informazioni dall'utente.",
+    parameters: {
+        type: Type.OBJECT,
+        properties: {
+        title: { type: Type.STRING, description: "Il titolo dell'evento." },
+        start_datetime: { type: Type.STRING, description: "La data e ora di inizio in formato ISO 8601. Inferisci l'anno se non specificato." },
+        end_datetime: { type: Type.STRING, description: "La data e ora di fine in formato ISO 8601. Se non specificato, imposta la durata a 1 ora dall'inizio." },
+        description: { type: Type.STRING, description: "Una breve descrizione o nota per l'evento." },
+        amount: { type: Type.NUMBER, description: "L'importo monetario, se applicabile." },
+        category_id: { type: Type.STRING, description: `L'ID della categoria. Scegli tra questi: ${categories.map(c => `${c.name} (id: ${c.id})`).join(', ')}` },
+        recurrence: { type: Type.STRING, description: `La ricorrenza. Scegli tra: ${RECURRENCE_OPTIONS.map(o => o.value).join(', ')}` },
+        reminders: { type: Type.ARRAY, items: { type: Type.NUMBER }, description: `Promemoria in minuti prima dell'evento. Scegli tra: ${REMINDER_OPTIONS.map(o => o.value).join(', ')}` },
+        color: { type: Type.STRING, description: `Colore esadecimale per l'evento. Scegli tra: ${COLORS.join(', ')}` },
+        },
+    },
+  }), [categories]);
+  
+  const saveAndCloseEventFunction: FunctionDeclaration = useMemo(() => ({
+    name: 'save_and_close_event',
+    description: "Salva l'evento con i dettagli correnti nel modulo e chiude la finestra. Da usare SOLO dopo che l'utente ha dato la conferma finale che i dettagli sono corretti.",
+    parameters: { type: Type.OBJECT, properties: {}, required: [] },
+  }), []);
+
+  const stopListening = useCallback(async () => {
+    setAiStatus('idle');
+    scriptProcessorRef.current?.disconnect();
+    mediaStreamSourceRef.current?.disconnect();
+    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+    if (inputAudioContextRef.current && inputAudioContextRef.current.state !== 'closed') {
+      try { await inputAudioContextRef.current.close(); } catch(e) { console.warn("Could not close input audio context:", e)}
+    }
+    if (sessionPromiseRef.current) {
+        try {
+            const session = await sessionPromiseRef.current;
+            session.close();
+        } catch (e) { console.error("Error closing session:", e); }
+        sessionPromiseRef.current = null;
+    }
+  }, []);
+
+  const startListening = useCallback(async () => {
+    if (aiStatus === 'listening') {
+        stopListening();
+        return;
+    }
+    setAiStatus('connecting');
+    setConversation(prev => [...prev, {role: 'ai', content: ''}]);
+
+    try {
+        const ai = new GoogleGenAI({apiKey: import.meta.env.VITE_GEMINI_API_KEY});
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+        outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        
+        sessionPromiseRef.current = ai.live.connect({
+            model: 'gemini-2.0-flash-exp',
+            callbacks: {
+                onopen: () => {
+                    setAiStatus('listening');
+                    const source = inputAudioContextRef.current!.createMediaStreamSource(stream);
+                    mediaStreamSourceRef.current = source;
+                    const scriptProcessor = inputAudioContextRef.current!.createScriptProcessor(4096, 1, 1);
+                    scriptProcessorRef.current = scriptProcessor;
+                    
+                    scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
+                        const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
+                        const pcmBlob = createBlob(inputData);
+                        sessionPromiseRef.current?.then((session) => {
+                            session.sendRealtimeInput({ media: pcmBlob });
+                        });
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(inputAudioContextRef.current!.destination);
+                },
+                onmessage: async (message: LiveServerMessage) => {
+                    if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
+                        setAiStatus('speaking');
+                        const base64Audio = message.serverContent.modelTurn.parts[0].inlineData.data;
+                        const ctx = outputAudioContextRef.current!;
+                        nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
+                        const audioBuffer = await decodeAudioData(decode(base64Audio), ctx, 24000, 1);
+                        const source = ctx.createBufferSource();
+                        source.buffer = audioBuffer;
+                        source.connect(ctx.destination);
+                        source.addEventListener('ended', () => {
+                           setAiStatus('listening');
+                           sourcesRef.current.delete(source);
+                        });
+                        source.start(nextStartTimeRef.current);
+                        nextStartTimeRef.current += audioBuffer.duration;
+                        sourcesRef.current.add(source);
+                    }
+                    if (message.toolCall?.functionCalls) {
+                        message.toolCall.functionCalls.forEach(fc => {
+                            if (fc.name === 'update_event_details') {
+                                const { start_datetime, end_datetime, ...rest } = fc.args;
+                                const updatedFormData: Partial<Event> = { ...rest };
+                                if(start_datetime) updatedFormData.start_datetime = toLocalISOString(new Date(start_datetime));
+                                if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+
+                                setFormData(prev => ({ ...prev, ...updatedFormData }));
+                                sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
+                            } else if (fc.name === 'save_and_close_event') {
+                                handleSaveRef.current();
+                                stopListening();
+                            }
+                        })
+                    }
+                    if (message.serverContent?.inputTranscription) {
+                        const text = message.serverContent.inputTranscription.text;
+                        const isFinal = message.serverContent.inputTranscription.isFinal;
+                         setConversation(current => {
+                            const last = current[current.length - 1];
+                            if (last?.role === 'user') {
+                                const newConvo = [...current];
+                                newConvo[current.length - 1] = { ...last, content: isFinal ? text : (last.content.split(' ').slice(0,-1).join(' ')+ ' ' + text) };
+                                return newConvo;
+                            }
+                            return [...current, { role: 'user', content: text }];
+                        });
+                    }
+                    if (message.serverContent?.outputTranscription) {
+                        const newTranscript = message.serverContent.outputTranscription.text;
+                         setConversation(current => {
+                            const last = current[current.length - 1];
+                            if (last?.role === 'ai') {
+                                const newConvo = [...current];
+                                newConvo[current.length - 1] = { ...last, content: last.content + newTranscript };
+                                return newConvo;
+                            }
+                            return [...current, { role: 'ai', content: newTranscript }];
+                        });
+                    }
+                },
+                onerror: (e: ErrorEvent) => {
+                    console.error('Live session error:', e);
+                    setAiStatus('error');
+                    setConversation(p => [...p, {role: 'ai', content: "Si è verificato un errore. Riprova."}]);
+                    stopListening();
+                },
+                onclose: () => {},
+            },
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
+                systemInstruction,
+                tools: [{ functionDeclarations: [updateEventDetailsFunction, saveAndCloseEventFunction] }],
+                inputAudioTranscription: {},
+                outputAudioTranscription: {},
+            },
+        });
+    } catch (error) {
+        console.error('Failed to start microphone:', error);
+        setAiStatus('error');
+        setConversation(p => [...p, {role: 'ai', content: "Non ho accesso al microfono. Controlla le autorizzazioni."}]);
+    }
+  }, [aiStatus, stopListening, updateEventDetailsFunction, saveAndCloseEventFunction, systemInstruction]);
+
+    const handleTextPrompt = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const userMessage = aiTextInput.trim();
+        if (!userMessage || aiStatus !== 'idle') return;
+    
+        setAiTextInput('');
+        const currentConversation = [...conversation, { role: 'user', content: userMessage }];
+        setConversation(currentConversation);
+        setAiStatus('thinking');
+    
+        try {
+            // Call backend AI endpoint instead of direct Gemini
+            const token = localStorage.getItem('auth_token');
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/chat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ messages: currentConversation })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            // Handle function calls from backend
+            if (result.function_calls && result.function_calls.length > 0) {
+                for (const fc of result.function_calls) {
+                    if (fc.name === 'update_event_details') {
+                        const { start_datetime, end_datetime, ...rest } = fc.args;
+                        const updatedFormData: Partial<Event> = { ...rest };
+                        if(start_datetime) updatedFormData.start_datetime = toLocalISOString(new Date(start_datetime));
+                        if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+                        setFormData(prev => ({ ...prev, ...updatedFormData }));
+                    } else if (fc.name === 'save_and_close_event') {
+                        handleSaveRef.current();
+                        setAiStatus('idle');
+                        return;
+                    }
+                }
+            }
+            
+            // Add AI text response to conversation
+            if (result.text) {
+                setConversation(prev => [...prev, { role: 'ai', content: result.text }]);
+            }
+    
+        } catch (error) {
+            console.error('Text prompt error:', error);
+            setConversation(prev => [...prev, { role: 'ai', content: 'Si è verificato un errore.' }]);
+        } finally {
+            setAiStatus('idle');
+        }
+    };
+
+  useEffect(() => {
+    return () => { stopListening(); }
+  }, [stopListening]);
+
+  useEffect(() => {
+    if (transcriptContainerRef.current) {
+        transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+    }
+  }, [conversation]);
+
+  useEffect(() => {
+    // Re-focus text input after AI responds
+    if (aiMode && aiStatus === 'idle' && conversation[conversation.length - 1]?.role === 'ai') {
+        aiTextInputRef.current?.focus();
+    }
+  }, [conversation, aiStatus, aiMode]);
+  
+  useEffect(() => {
+    if (isOpen) {
+        setFormData(getInitialFormData());
+        setIsSaving(false);
+        if (aiMode) {
+          setConversation([{ role: 'ai', content: 'Ciao! Come posso aiutarti?' }]);
+        }
+    }
+  }, [isOpen, getInitialFormData, aiMode]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'amount' ? (value ? parseFloat(value) : undefined) : value,
+    }));
+  };
+  
+  const addReminder = (minutes: number) => {
+    if (minutes && !formData.reminders?.includes(minutes)) {
+        setFormData(prev => ({ ...prev, reminders: [...(prev.reminders || []), minutes] }));
+    }
+  };
+
+  const removeReminder = (minutes: number) => {
+    setFormData(prev => ({ ...prev, reminders: (prev.reminders || []).filter(r => r !== minutes) }));
+  };
+
+  const handleSubmit = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    handleSave();
+  };
+  
+  const handleDelete = () => { if (event?.id) setIsDeleteConfirmOpen(true); };
+  
+  const handleConfirmDelete = () => {
+      if (event?.id) onDelete(event.id);
+      setIsDeleteConfirmOpen(false);
+  }
+  
+   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setAiStatus('thinking');
+    setConversation(p => [...p, {role: 'ai', content: `Analizzo il documento: ${file.name}...`}]);
+    try {
+        const analysis = await apiService.aiAnalyzeDocument(file);
+        const updatedFormData: Partial<Event> = {
+            title: analysis.reason,
+            start_datetime: analysis.due_date ? toLocalISOString(new Date(analysis.due_date)) : formData.start_datetime,
+            amount: analysis.amount,
+            has_document: true,
+        };
+        setFormData(prev => ({...prev, ...updatedFormData}));
+        setConversation(p => [...p, {role: 'ai', content: `Ho analizzato il documento. Ho trovato una ${analysis.document_type || 'informazione'}. Ho compilato i campi. È tutto corretto?`}]);
+    } catch(err) {
+        setConversation(p => [...p, {role: 'ai', content: "Non sono riuscito ad analizzare il documento. Riprova."}]);
+    } finally {
+        setAiStatus('idle');
+         if(e.target) e.target.value = '';
+    }
+   };
+
+  const handleMoveEvent = (unit: 'day' | 'week' | 'month') => {
+    const startDate = new Date(formData.start_datetime!);
+    const endDate = formData.end_datetime ? new Date(formData.end_datetime) : null;
+    const duration = endDate ? endDate.getTime() - startDate.getTime() : (60 * 60 * 1000); // Default 1h duration
+
+    let newStartDate: Date;
+    if (unit === 'day') newStartDate = new Date(startDate.setDate(startDate.getDate() + 1));
+    else if (unit === 'week') newStartDate = new Date(startDate.setDate(startDate.getDate() + 7));
+    else newStartDate = new Date(startDate.setMonth(startDate.getMonth() + 1));
+    
+    const newEndDate = new Date(newStartDate.getTime() + duration);
+
+    setFormData(prev => ({
+        ...prev,
+        start_datetime: toLocalISOString(newStartDate),
+        end_datetime: newEndDate ? toLocalISOString(newEndDate) : undefined,
+    }));
+    setIsMoveMenuOpen(false);
+  };
+
+  const handleMoveEventToDate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDateStr = e.target.value;
+    if (!newDateStr) return;
+    const [year, month, day] = newDateStr.split('-').map(Number);
+    
+    const startDate = new Date(formData.start_datetime!);
+    const endDate = formData.end_datetime ? new Date(formData.end_datetime) : null;
+    const duration = endDate ? endDate.getTime() - startDate.getTime() : (60 * 60 * 1000);
+
+    const newStartDate = new Date(startDate);
+    newStartDate.setFullYear(year, month - 1, day);
+    const newEndDate = new Date(newStartDate.getTime() + duration);
+    
+    setFormData(prev => ({
+        ...prev,
+        start_datetime: toLocalISOString(newStartDate),
+        end_datetime: newEndDate ? toLocalISOString(newEndDate) : undefined,
+    }));
+    setIsMoveMenuOpen(false);
+  };
+  
+  if (!isOpen) return null;
+  
+  const MicButton = () => {
+    let content; let pulsing = false;
+    switch(aiStatus) {
+        case 'listening':
+        case 'speaking':
+            content = <div className="w-3 h-3 bg-white rounded-sm"></div>;
+            pulsing = aiStatus === 'listening'; break;
+        case 'connecting':
+        case 'thinking':
+            content = <Icons.Spinner className="h-6 w-6 animate-spin" />; break;
+        case 'error':
+            content = <Icons.XMark className="h-6 w-6"/>; break;
+        default:
+             content = <Icons.Microphone className="h-6 w-6"/>;
+    }
+    return (
+         <button type="button" onClick={startListening} className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors text-white ${aiStatus === 'listening' || aiStatus === 'speaking' ? 'bg-red-500' : 'bg-primary'} ${pulsing ? 'animate-pulse' : ''}`}>
+            {content}
+        </button>
+    )
+  }
+
+  const isFormValid = !!(formData.title && formData.category_id && formData.start_datetime);
+
+  return (
+    <>
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+      <div className="bg-surface w-full max-w-md m-4 rounded-lg flex flex-col max-h-[90vh] relative">
+        <header className="p-4 flex justify-between items-center border-b border-gray-700 flex-shrink-0">
+          <h2 className="font-bold text-lg">{event ? 'Modifica Evento' : 'Nuovo Evento'} {aiMode && <span className="text-primary text-sm align-middle">(AI)</span>}</h2>
+           <div className="flex items-center gap-2">
+            {event && !aiMode && (
+                 <div className="relative">
+                    <button type="button" onClick={() => setIsMoveMenuOpen(prev => !prev)} className="text-sm font-semibold px-3 py-1 rounded-md border border-gray-600 hover:bg-gray-700">Sposta a...</button>
+                    {isMoveMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-48 bg-background border border-gray-600 rounded-md shadow-lg z-20">
+                            <button type="button" onClick={() => handleMoveEvent('day')} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface">Il giorno dopo</button>
+                            <button type="button" onClick={() => handleMoveEvent('week')} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface">Una settimana dopo</button>
+                            <button type="button" onClick={() => handleMoveEvent('month')} className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface">Un mese dopo</button>
+                            <div className="border-t border-gray-600 my-1"></div>
+                            <label htmlFor="move-to-date-input" className="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface cursor-pointer">Scegli data...</label>
+                            <input type="date" id="move-to-date-input" onChange={handleMoveEventToDate} className="opacity-0 w-0 h-0 absolute left-0 top-0"/>
+                        </div>
+                    )}
+                 </div>
+            )}
+            <button onClick={() => onClose()} className="p-1 -mr-1 rounded-full hover:bg-gray-700"><Icons.Close/></button>
+          </div>
+        </header>
+        
+        {aiMode && (
+            <div className="flex-shrink-0 flex flex-col">
+                <div ref={transcriptContainerRef} className="text-sm min-h-[6rem] max-h-40 overflow-y-auto p-3 space-y-2 scroll-smooth border-b border-gray-700">
+                    {conversation.map((msg, index) => (
+                        <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <p className={`max-w-[80%] rounded-lg px-3 py-2 ${msg.role === 'user' ? 'bg-primary text-white' : 'bg-background'}`}>
+                                {msg.content}
+                            </p>
+                        </div>
+                    ))}
+                     {aiStatus === 'thinking' && 
+                        <div className="flex justify-start">
+                             <p className="bg-background rounded-lg px-3 py-2 animate-pulse">...</p>
+                        </div>
+                     }
+                </div>
+                <form onSubmit={handleTextPrompt} className="p-2 flex items-center gap-2 border-b border-gray-700">
+                     <input 
+                        ref={aiTextInputRef}
+                        type="text" 
+                        value={aiTextInput}
+                        onChange={(e) => setAiTextInput(e.target.value)}
+                        placeholder="Oppure scrivi qui..."
+                        className="flex-grow bg-background p-2 rounded-lg border border-gray-600 focus:outline-none focus:ring-1 focus:ring-primary text-sm"
+                        disabled={aiStatus !== 'idle'}
+                     />
+                     <button type="submit" className="text-primary hover:text-white disabled:text-gray-500" disabled={!aiTextInput.trim() || aiStatus !== 'idle'}>
+                        <Icons.Send className="h-6 w-6"/>
+                     </button>
+                </form>
+                <div className="flex items-center justify-around p-3">
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/jpeg,image/png,application/pdf" />
+                    <input type="file" ref={cameraInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" capture="environment" />
+
+                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Carica Documento">
+                        <Icons.Upload className="h-7 w-7"/>
+                    </button>
+                    <MicButton />
+                    <button type="button" onClick={() => cameraInputRef.current?.click()} className="text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Usa Fotocamera">
+                        <Icons.Camera className="h-7 w-7"/>
+                    </button>
+                </div>
+            </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex flex-col flex-grow overflow-hidden">
+            <div className="flex-grow p-4 overflow-y-auto space-y-4">
+                <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-text-secondary mb-1">Titolo</label>
+                    <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} required className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"/>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="category_id" className="block text-sm font-medium text-text-secondary mb-1">Categoria</label>
+                        <div className="flex items-center">
+                            <span className="w-4 h-4 rounded-full mr-2 flex-shrink-0" style={{ backgroundColor: categories.find(c=>c.id === formData.category_id)?.color }}></span>
+                            <select id="category_id" name="category_id" value={formData.category_id} onChange={handleChange} required className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary appearance-none">
+                                {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                     <div>
+                        <label htmlFor="amount" className="block text-sm font-medium text-text-secondary mb-1">Importo (€)</label>
+                        <input 
+                            type="number" 
+                            id="amount" 
+                            name="amount" 
+                            value={formData.amount === undefined ? '' : formData.amount} 
+                            onChange={handleChange} 
+                            placeholder="Es. 75.50" 
+                            step="0.01"
+                            className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-text-secondary mb-1">Appunti / Descrizione</label>
+                    <textarea id="description" name="description" rows={3} value={formData.description || ''} onChange={handleChange} placeholder="Dettagli aggiuntivi..." className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">Colore Evento</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <button type="button" onClick={() => setFormData(prev => ({ ...prev, color: undefined }))} className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${!formData.color ? 'border-white ring-2 ring-primary' : 'border-transparent'}`} title="Usa colore categoria">
+                            <div className="w-6 h-6 rounded-full" style={{ backgroundColor: categories.find(c => c.id === formData.category_id)?.color }}></div>
+                        </button>
+                        {COLORS.map(c => (
+                            <button key={c} type="button" onClick={() => setFormData(prev => ({ ...prev, color: c }))} style={{ backgroundColor: c }} className={`w-8 h-8 rounded-full border-2 transition-all ${formData.color === c ? 'border-white ring-2 ring-offset-2 ring-offset-surface ring-white' : 'border-transparent'}`}></button>
+                        ))}
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="start_datetime" className="block text-sm font-medium text-text-secondary mb-1">Inizio</label>
+                        <input type="datetime-local" id="start_datetime" name="start_datetime" value={formData.start_datetime} onChange={handleChange} required className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"/>
+                    </div>
+                    <div>
+                        <label htmlFor="end_datetime" className="block text-sm font-medium text-text-secondary mb-1">Fine</label>
+                        <input type="datetime-local" id="end_datetime" name="end_datetime" value={formData.end_datetime || ''} onChange={handleChange} className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary"/>
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="recurrence" className="block text-sm font-medium text-text-secondary mb-1">Si ripete</label>
+                    <select id="recurrence" name="recurrence" value={formData.recurrence} onChange={handleChange} className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary">
+                        {RECURRENCE_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">Promemoria</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {formData.reminders?.map(minutes => (
+                            <div key={minutes} className="flex items-center gap-1 bg-primary/30 text-primary font-semibold px-2 py-1 rounded-md text-xs">
+                                <span>{REMINDER_OPTIONS.find(o => o.value === minutes)?.label}</span>
+                                <button type="button" onClick={() => removeReminder(minutes)}><Icons.XMark className="h-4 w-4"/></button>
+                            </div>
+                        ))}
+                    </div>
+                    <select onChange={(e) => addReminder(parseInt(e.target.value))} className="w-full bg-background p-2 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary" value="">
+                        <option value="" disabled>Aggiungi un promemoria...</option>
+                        {REMINDER_OPTIONS.filter(opt => !formData.reminders?.includes(opt.value)).map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                </div>
+            </div>
+            <footer className="flex-shrink-0 p-4 flex justify-between items-center border-t border-gray-700">
+                <div>
+                    {event && (
+                        <button onClick={handleDelete} type="button" className="text-red-500 hover:text-red-400 font-semibold flex items-center gap-1">
+                            <Icons.Trash className="h-5 w-5"/> Elimina
+                        </button>
+                    )}
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => onClose()} type="button" className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-500 text-white font-semibold">Annulla</button>
+                    <button 
+                        type="submit"
+                        disabled={!isFormValid || isSaving || (aiMode && aiStatus !== 'idle')}
+                        className="px-4 py-2 rounded-md bg-primary hover:bg-violet-700 text-white font-semibold transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center w-24"
+                    >
+                        {isSaving ? <Icons.Spinner className="h-5 w-5 animate-spin" /> : 'Salva'}
+                    </button>
+                </div>
+            </footer>
+        </form>
+      </div>
+    </div>
+    
+    {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
+            <div className="bg-surface rounded-lg p-6 w-full max-w-sm m-4 text-center shadow-2xl">
+            <h3 className="font-bold text-lg mb-2">Conferma Eliminazione</h3>
+            <p className="text-text-secondary mb-6">
+                Sei sicuro di voler eliminare l'evento "{event?.title}"? L'azione è irreversibile.
+            </p>
+            <div className="flex justify-end gap-3">
+                <button onClick={() => setIsDeleteConfirmOpen(false)} className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-500 font-semibold transition-colors">Annulla</button>
+                <button onClick={handleConfirmDelete} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">Elimina</button>
+            </div>
+            </div>
+        </div>
+    )}
+    </>
+  );
+};
+
+export default EventModal;

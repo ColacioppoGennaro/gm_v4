@@ -17,11 +17,10 @@ logging.basicConfig(
     ]
 )
 
-# Import routes
-from modules.routes.auth import auth_bp
-from modules.routes.events import events_bp
-
-def create_app():
+    # Import routes
+    from modules.routes.auth import auth_bp
+    from modules.routes.events import events_bp
+    from modules.routes.ai import ai_bpdef create_app():
     """Create and configure the Flask application"""
     
     app = Flask(__name__)
@@ -39,6 +38,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(events_bp)
+    app.register_blueprint(ai_bp, url_prefix='/api/ai')
     
     # Global error handler - CATCH ALL EXCEPTIONS
     @app.errorhandler(Exception)
