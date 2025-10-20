@@ -17,10 +17,12 @@ logging.basicConfig(
     ]
 )
 
-    # Import routes
-    from modules.routes.auth import auth_bp
-    from modules.routes.events import events_bp
-    from modules.routes.ai import ai_bpdef create_app():
+# Import routes
+from modules.routes.auth import auth_bp
+from modules.routes.events import events_bp
+from modules.routes.ai import ai_bp
+
+def create_app():
     """Create and configure the Flask application"""
     
     app = Flask(__name__)
