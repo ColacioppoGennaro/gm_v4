@@ -6,14 +6,20 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 import sys
+import os
 from datetime import datetime
 
 # Configure logging
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'logs')
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, 'app.log')
+
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(sys.stdout)
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file)
     ]
 )
 
@@ -65,6 +71,49 @@ def create_app():
             'version': '4.0.0',
             'service': 'SmartLife Organizer API'
         })
+    
+    # Debug endpoint - TEST DATABASE
+    @app.route('/api/debug/db-test', methods=['GET'])
+    def debug_db_test():
+        """Test database connection and query"""
+        try:
+            from modules.utils.database import db
+            
+            # Test simple query
+            result = db.execute_query("SELECT DATABASE() as db_name", fetch_one=True)
+            
+            # Test events table structure
+            columns = db.execute_query("DESCRIBE events", fetch_all=True)
+            
+            # Test events query
+            user_id = '272b4063-9611-4b50-8359-dcef4907e132'
+            query = """
+                SELECT 
+                    e.*,
+                    c.name as category_name,
+                    c.color as category_color,
+                    c.icon as category_icon
+                FROM events e
+                LEFT JOIN categories c ON e.category_id = c.id
+                WHERE e.user_id = %s AND e.deleted_at IS NULL
+                ORDER BY e.start_time DESC
+            """
+            events = db.execute_query(query, [user_id], fetch_all=True)
+            
+            return jsonify({
+                'success': True,
+                'database': result,
+                'columns': columns,
+                'events_count': len(events) if events else 0,
+                'events': events
+            })
+        except Exception as e:
+            import traceback
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'traceback': traceback.format_exc()
+            }), 500
     
     # Root endpoint
     @app.route('/', methods=['GET'])
