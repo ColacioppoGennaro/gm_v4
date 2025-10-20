@@ -13,16 +13,17 @@ sys.path.insert(0, os.path.join(current_dir, 'backend'))
 # Change to app directory
 os.chdir(current_dir)
 
-# Import Flask app from backend/app.py (not backend/app/__init__.py)
+# Import Flask app from backend/app.py
 try:
-    # Import the module directly
-    import backend.app as app_module
-    application = app_module.app
+    # Import the create_app function and create app instance
+    sys.path.insert(0, os.path.join(current_dir, 'backend'))
+    from app import create_app
+    application = create_app()
 except ImportError as e:
     # Fallback: show error
     def application(environ, start_response):
         start_response('500 Internal Server Error', [('Content-Type','text/plain')])
-        msg = f'Error importing Flask app: {str(e)}'.encode('utf-8')
+        msg = f'Error importing Flask app: {str(e)}\nPython path: {sys.path}'.encode('utf-8')
         return [msg]
 
 if __name__ == '__main__':
