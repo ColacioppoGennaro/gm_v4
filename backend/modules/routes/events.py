@@ -66,9 +66,9 @@ def get_events(current_user):
         query += " ORDER BY e.start_time DESC"
         
         # Get total count
-        count_query = query.replace('SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon', 'SELECT COUNT(*)')
+        count_query = query.replace('SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon', 'SELECT COUNT(*) as total')
         count_result = db.execute_query(count_query, params, fetch_one=True)
-        total = count_result['COUNT(*)'] if count_result else 0
+        total = count_result['total'] if count_result and 'total' in count_result else 0
         
         # Apply pagination
         offset = (page - 1) * per_page
@@ -298,28 +298,30 @@ def create_event(current_user):
                     status_code=404
                 ))
         
-        # Insert event
+        # Generate UUID for the event
+        from modules.utils.database import generate_uuid
+        event_id = generate_uuid()
+        
+        # Insert event with explicit ID
         query = """
             INSERT INTO events (
-                user_id, title, description, start_time, end_time,
+                id, user_id, title, description, start_time, end_time,
                 location, category_id, is_all_day, recurrence_rule,
                 reminder_minutes, color
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
-        event_id = db.insert_and_get_id(
+        db.execute_query(
             query,
             [
-                current_user['id'], title, description, start_time, end_time,
+                event_id, current_user['id'], title, description, start_time, end_time,
                 location, category_id, is_all_day, recurrence_rule,
                 reminder_minutes, color
-            ]
+            ],
+            fetch_all=False
         )
         
         logger.info(f"Event inserted with ID: {event_id}")
-        
-        if not event_id:
-            raise Exception("Failed to get event ID after insert")
         
         # Get created event
         created_event = db.execute_query(
