@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/gm_v4/frontend/dist/',
   server: {
     port: 3000,
     host: true
