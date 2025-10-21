@@ -114,12 +114,17 @@ const App: React.FC = () => {
     const category = categories.find(c => c.id === newEvent.category_id);
     setEvents(prev => [...prev, {...newEvent, category}].sort((a,b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime()));
     setCategories(prev => prev.map(c => c.id === newEvent.category_id ? { ...c, event_count: (c.event_count || 0) + 1 } : c));
+    setIsEventModalOpen(false);
+    setEventToEdit(undefined);
+    setNewEventDate(undefined);
+    setIsAiMode(false);
   }, [categories]);
 
   const handleUpdateEvent = useCallback(async (eventData: Event) => {
     const updatedEvent = await apiService.updateEvent(eventData);
     const category = categories.find(c => c.id === updatedEvent.category_id);
     setEvents(prev => prev.map(e => e.id === updatedEvent.id ? {...updatedEvent, category} : e));
+    setIsEventModalOpen(false);
     setEventToEdit(undefined);
   }, [categories]);
 

@@ -158,13 +158,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     };
     try {
         await onSave(submissionData);
-        onClose();
+        // Non chiudiamo qui - lasciamo che il parent lo faccia dopo aver aggiornato lo state
     } catch (error) {
         console.error("Errore nel salvataggio dell'evento:", error);
     } finally {
         setIsSaving(false);
     }
-  }, [onSave, onClose, isSaving]);
+  }, [onSave]);
   
   const handleSaveRef = useRef(handleSave);
   useEffect(() => {
