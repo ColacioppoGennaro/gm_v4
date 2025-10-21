@@ -150,7 +150,7 @@ export const apiService = {
   // User settings - REAL API CALLS
   connectGoogleCalendar: async (): Promise<User> => {
     const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google/connect`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google/connect`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -178,7 +178,7 @@ export const apiService = {
           
           if (event.data.success) {
             // Refresh user data
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/me`, {
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
               method: 'GET',
               headers: { 'Authorization': `Bearer ${token}` }
             })
@@ -206,7 +206,7 @@ export const apiService = {
   
   disconnectGoogleCalendar: async (): Promise<User> => {
     const token = localStorage.getItem('auth_token');
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google/disconnect`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google/disconnect`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
