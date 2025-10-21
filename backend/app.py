@@ -147,32 +147,48 @@ def create_app():
         # Serve static files from frontend/dist
         from flask import send_from_directory, send_file
         import os
+        import mimetypes
         
         frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
         
-        # If path is empty or doesn't exist, serve index.html (SPA routing)
+        # If path is empty, serve index.html
         if path == '':
             index_path = os.path.join(frontend_dir, 'index.html')
             if os.path.exists(index_path):
-                return send_file(index_path)
+                return send_file(index_path, mimetype='text/html')
         
-        # Try to serve the requested file
+        # Try to serve the requested file with correct MIME type
         file_path = os.path.join(frontend_dir, path)
         if os.path.exists(file_path) and os.path.isfile(file_path):
-            return send_from_directory(frontend_dir, path)
+            # Get MIME type
+            mimetype, _ = mimetypes.guess_type(file_path)
+            
+            # Ensure correct MIME types for common files
+            if path.endswith('.js'):
+                mimetype = 'application/javascript'
+            elif path.endswith('.css'):
+                mimetype = 'text/css'
+            elif path.endswith('.json'):
+                mimetype = 'application/json'
+            elif path.endswith('.html'):
+                mimetype = 'text/html'
+            
+            return send_file(file_path, mimetype=mimetype)
         
-        # Fallback to index.html for SPA routing
-        index_path = os.path.join(frontend_dir, 'index.html')
-        if os.path.exists(index_path):
-            return send_file(index_path)
+        # Fallback to index.html for SPA routing (only for non-asset paths)
+        if not path.startswith('assets/'):
+            index_path = os.path.join(frontend_dir, 'index.html')
+            if os.path.exists(index_path):
+                return send_file(index_path, mimetype='text/html')
         
         # If frontend doesn't exist, show API info
         return jsonify({
             'message': 'SmartLife Organizer API v4.0',
             'status': 'running',
             'frontend': 'not found',
+            'path': path,
             'timestamp': datetime.utcnow().isoformat()
-        })
+        }), 404
     
     # Global error handlers
     @app.errorhandler(404)
