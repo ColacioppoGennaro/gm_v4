@@ -51,11 +51,11 @@ def get_events(current_user):
             params.append(category_id)
         
         if start_date:
-            query += " AND e.start_time >= %s"
+            query += " AND e.start_datetime >= %s"
             params.append(start_date)
         
         if end_date:
-            query += " AND e.end_time <= %s"
+            query += " AND e.end_datetime <= %s"
             params.append(end_date)
         
         if search:
@@ -63,7 +63,7 @@ def get_events(current_user):
             search_term = f"%{search}%"
             params.extend([search_term, search_term, search_term])
         
-        query += " ORDER BY e.start_time DESC"
+        query += " ORDER BY e.start_datetime DESC"
         
         # Get total count
         count_query = query.replace('SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon', 'SELECT COUNT(*) as total')
@@ -84,10 +84,10 @@ def get_events(current_user):
         
         # Serialize datetime fields
         for event in events:
-            if event.get('start_time'):
-                event['start_time'] = serialize_datetime(event['start_time'])
-            if event.get('end_time'):
-                event['end_time'] = serialize_datetime(event['end_time'])
+            if event.get('start_datetime'):
+                event['start_datetime'] = serialize_datetime(event['start_datetime'])
+            if event.get('end_datetime'):
+                event['end_datetime'] = serialize_datetime(event['end_datetime'])
             if event.get('created_at'):
                 event['created_at'] = serialize_datetime(event['created_at'])
             if event.get('updated_at'):
@@ -134,16 +134,16 @@ def get_today_events(current_user):
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.user_id = %s 
             AND e.deleted_at IS NULL
-            AND DATE(e.start_time) = %s
-            ORDER BY e.start_time ASC
+            AND DATE(e.start_datetime) = %s
+            ORDER BY e.start_datetime ASC
         """
         
         events = db.execute_query(query, [current_user['id'], today])
         
         # Serialize datetime fields
         for event in events:
-            event['start_time'] = serialize_datetime(event['start_time'])
-            event['end_time'] = serialize_datetime(event['end_time'])
+            event['start_datetime'] = serialize_datetime(event['start_datetime'])
+            event['end_datetime'] = serialize_datetime(event['end_datetime'])
             event['created_at'] = serialize_datetime(event['created_at'])
             event['updated_at'] = serialize_datetime(event['updated_at'])
         
@@ -178,8 +178,8 @@ def get_upcoming_events(current_user):
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.user_id = %s 
             AND e.deleted_at IS NULL
-            AND e.start_time BETWEEN %s AND %s
-            ORDER BY e.start_time ASC
+            AND e.start_datetime BETWEEN %s AND %s
+            ORDER BY e.start_datetime ASC
             LIMIT 10
         """
         
@@ -187,8 +187,8 @@ def get_upcoming_events(current_user):
         
         # Serialize datetime fields
         for event in events:
-            event['start_time'] = serialize_datetime(event['start_time'])
-            event['end_time'] = serialize_datetime(event['end_time'])
+            event['start_datetime'] = serialize_datetime(event['start_datetime'])
+            event['end_datetime'] = serialize_datetime(event['end_datetime'])
             event['created_at'] = serialize_datetime(event['created_at'])
             event['updated_at'] = serialize_datetime(event['updated_at'])
         
@@ -230,8 +230,8 @@ def get_event(current_user, event_id):
             ))
         
         # Serialize datetime fields
-        event['start_time'] = serialize_datetime(event['start_time'])
-        event['end_time'] = serialize_datetime(event['end_time'])
+        event['start_datetime'] = serialize_datetime(event['start_datetime'])
+        event['end_datetime'] = serialize_datetime(event['end_datetime'])
         event['created_at'] = serialize_datetime(event['created_at'])
         event['updated_at'] = serialize_datetime(event['updated_at'])
         
@@ -256,12 +256,12 @@ def create_event(current_user):
         data = request.get_json()
         
         # Validate required fields
-        validate_required_fields(data, ['title', 'start_time', 'end_time'])
+        validate_required_fields(data, ['title', 'start_datetime', 'end_datetime'])
         
         title = data['title'].strip()
         description = data.get('description', '').strip()
-        start_time = data['start_time']
-        end_time = data['end_time']
+        start_datetime = data['start_datetime']
+        end_datetime = data['end_datetime']
         location = data.get('location', '').strip()
         category_id = data.get('category_id')
         is_all_day = data.get('is_all_day', False)
@@ -271,8 +271,8 @@ def create_event(current_user):
         
         # Validate dates
         try:
-            start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
-            end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+            start_dt = datetime.fromisoformat(start_datetime.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_datetime.replace('Z', '+00:00'))
             
             if end_dt <= start_dt:
                 return jsonify(create_response(
@@ -305,7 +305,7 @@ def create_event(current_user):
         # Insert event with explicit ID
         query = """
             INSERT INTO events (
-                id, user_id, title, description, start_time, end_time,
+                id, user_id, title, description, start_datetime, end_datetime,
                 location, category_id, is_all_day, recurrence_rule,
                 reminder_minutes, color
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -314,7 +314,7 @@ def create_event(current_user):
         db.execute_query(
             query,
             [
-                event_id, current_user['id'], title, description, start_time, end_time,
+                event_id, current_user['id'], title, description, start_datetime, end_datetime,
                 location, category_id, is_all_day, recurrence_rule,
                 reminder_minutes, color
             ],
@@ -345,10 +345,10 @@ def create_event(current_user):
             raise Exception(f"Failed to retrieve created event with ID {event_id}")
         
         # Serialize datetime
-        if created_event.get('start_time'):
-            created_event['start_time'] = serialize_datetime(created_event['start_time'])
-        if created_event.get('end_time'):
-            created_event['end_time'] = serialize_datetime(created_event['end_time'])
+        if created_event.get('start_datetime'):
+            created_event['start_datetime'] = serialize_datetime(created_event['start_datetime'])
+        if created_event.get('end_datetime'):
+            created_event['end_datetime'] = serialize_datetime(created_event['end_datetime'])
         if created_event.get('created_at'):
             created_event['created_at'] = serialize_datetime(created_event['created_at'])
         if created_event.get('updated_at'):
@@ -363,8 +363,8 @@ def create_event(current_user):
                 google_event_id = GoogleCalendarService.create_event(current_user['id'], {
                     'title': title,
                     'description': description,
-                    'start_time': start_time,
-                    'end_time': end_time,
+                    'start_datetime': start_datetime,
+                    'end_datetime': end_datetime,
                     'location': location,
                     'is_all_day': is_all_day,
                     'reminder_minutes': reminder_minutes
@@ -431,13 +431,13 @@ def update_event(current_user, event_id):
             update_fields.append("description = %s")
             params.append(data['description'].strip())
         
-        if 'start_time' in data:
-            update_fields.append("start_time = %s")
-            params.append(data['start_time'])
+        if 'start_datetime' in data:
+            update_fields.append("start_datetime = %s")
+            params.append(data['start_datetime'])
         
-        if 'end_time' in data:
-            update_fields.append("end_time = %s")
-            params.append(data['end_time'])
+        if 'end_datetime' in data:
+            update_fields.append("end_datetime = %s")
+            params.append(data['end_datetime'])
         
         if 'location' in data:
             update_fields.append("location = %s")
@@ -460,7 +460,7 @@ def update_event(current_user, event_id):
             params.append(data['category_id'])
         
         if 'is_all_day' in data:
-            update_fields.append("is_all_day = %s")
+            update_fields.append("all_day = %s")
             params.append(data['is_all_day'])
         
         if 'recurrence_rule' in data:
@@ -507,8 +507,8 @@ def update_event(current_user, event_id):
         )
         
         # Serialize datetime
-        updated_event['start_time'] = serialize_datetime(updated_event['start_time'])
-        updated_event['end_time'] = serialize_datetime(updated_event['end_time'])
+        updated_event['start_datetime'] = serialize_datetime(updated_event['start_datetime'])
+        updated_event['end_datetime'] = serialize_datetime(updated_event['end_datetime'])
         updated_event['created_at'] = serialize_datetime(updated_event['created_at'])
         updated_event['updated_at'] = serialize_datetime(updated_event['updated_at'])
         

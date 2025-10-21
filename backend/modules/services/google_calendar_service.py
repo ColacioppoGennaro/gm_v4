@@ -251,7 +251,7 @@ class GoogleCalendarService:
         
         Args:
             user_id: User ID
-            event_data: Event data dict with title, description, start_time, end_time, location
+            event_data: Event data dict with title, description, start_datetime, end_datetime, location
             
         Returns:
             str: Google Calendar event ID
@@ -261,19 +261,19 @@ class GoogleCalendarService:
             service = build('calendar', 'v3', credentials=credentials)
             
             # Format event for Google Calendar
-            start_time = datetime.fromisoformat(event_data['start_time'].replace('Z', '+00:00'))
-            end_time = datetime.fromisoformat(event_data['end_time'].replace('Z', '+00:00'))
+            start_datetime = datetime.fromisoformat(event_data['start_datetime'].replace('Z', '+00:00'))
+            end_datetime = datetime.fromisoformat(event_data['end_datetime'].replace('Z', '+00:00'))
             
             google_event = {
                 'summary': event_data['title'],
                 'description': event_data.get('description', ''),
                 'location': event_data.get('location', ''),
                 'start': {
-                    'dateTime': start_time.isoformat(),
+                    'dateTime': start_datetime.isoformat(),
                     'timeZone': 'Europe/Rome',
                 },
                 'end': {
-                    'dateTime': end_time.isoformat(),
+                    'dateTime': end_datetime.isoformat(),
                     'timeZone': 'Europe/Rome',
                 },
                 'reminders': {
@@ -286,8 +286,8 @@ class GoogleCalendarService:
             
             # Handle all-day events
             if event_data.get('is_all_day'):
-                google_event['start'] = {'date': start_time.date().isoformat()}
-                google_event['end'] = {'date': end_time.date().isoformat()}
+                google_event['start'] = {'date': start_datetime.date().isoformat()}
+                google_event['end'] = {'date': end_datetime.date().isoformat()}
             
             # Create event
             event = service.events().insert(calendarId='primary', body=google_event).execute()
@@ -329,18 +329,18 @@ class GoogleCalendarService:
                 event['description'] = event_data['description']
             if 'location' in event_data:
                 event['location'] = event_data['location']
-            if 'start_time' in event_data:
-                start_time = datetime.fromisoformat(event_data['start_time'].replace('Z', '+00:00'))
+            if 'start_datetime' in event_data:
+                start_datetime = datetime.fromisoformat(event_data['start_datetime'].replace('Z', '+00:00'))
                 if event_data.get('is_all_day'):
-                    event['start'] = {'date': start_time.date().isoformat()}
+                    event['start'] = {'date': start_datetime.date().isoformat()}
                 else:
-                    event['start'] = {'dateTime': start_time.isoformat(), 'timeZone': 'Europe/Rome'}
-            if 'end_time' in event_data:
-                end_time = datetime.fromisoformat(event_data['end_time'].replace('Z', '+00:00'))
+                    event['start'] = {'dateTime': start_datetime.isoformat(), 'timeZone': 'Europe/Rome'}
+            if 'end_datetime' in event_data:
+                end_datetime = datetime.fromisoformat(event_data['end_datetime'].replace('Z', '+00:00'))
                 if event_data.get('is_all_day'):
-                    event['end'] = {'date': end_time.date().isoformat()}
+                    event['end'] = {'date': end_datetime.date().isoformat()}
                 else:
-                    event['end'] = {'dateTime': end_time.isoformat(), 'timeZone': 'Europe/Rome'}
+                    event['end'] = {'dateTime': end_datetime.isoformat(), 'timeZone': 'Europe/Rome'}
             
             # Update event
             updated_event = service.events().update(
