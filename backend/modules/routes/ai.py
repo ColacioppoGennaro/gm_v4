@@ -69,22 +69,29 @@ Rispondi SOLO con il JSON, senza markdown o spiegazioni."""
             }
         }
         
-        response = requests.post(gemini_url, json=payload, timeout=30)
-        response.raise_for_status()
-        
-        result = response.json()
-        
-        # Extract JSON from response
-        if 'candidates' in result and len(result['candidates']) > 0:
-            content = result['candidates'][0]['content']['parts'][0]['text']
-            analysis = json.loads(content)
-            
-            return jsonify({
-                'success': True,
-                'analysis': analysis
-            }), 200
-        else:
-            return jsonify({'error': 'No analysis returned from AI'}), 500
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(gemini_url, json=payload, timeout=30)
+                response.raise_for_status()
+                result = response.json()
+                # Extract JSON from response
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    content = result['candidates'][0]['content']['parts'][0]['text']
+                    analysis = json.loads(content)
+                    return jsonify({
+                        'success': True,
+                        'analysis': analysis
+                    }), 200
+                else:
+                    return jsonify({'error': 'No analysis returned from AI'}), 500
+            except requests.exceptions.RequestException as e:
+                print(f"Gemini API error (attempt {attempt+1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    raise
             
     except Exception as e:
         print(f"AI analyze error: {e}")
@@ -153,36 +160,41 @@ Usa le funzioni fornite per aggiornare i dati dell'evento."""
             "tools": tools
         }
         
-        response = requests.post(gemini_url, json=payload, timeout=30)
-        response.raise_for_status()
-        
-        result = response.json()
-        
-        if 'candidates' in result and len(result['candidates']) > 0:
-            candidate = result['candidates'][0]
-            
-            # Check for function calls
-            function_calls = []
-            if 'content' in candidate and 'parts' in candidate['content']:
-                for part in candidate['content']['parts']:
-                    if 'functionCall' in part:
-                        function_calls.append(part['functionCall'])
-            
-            # Get text response
-            text_response = ''
-            if 'content' in candidate and 'parts' in candidate['content']:
-                for part in candidate['content']['parts']:
-                    if 'text' in part:
-                        text_response = part['text']
-                        break
-            
-            return jsonify({
-                'success': True,
-                'text': text_response,
-                'function_calls': function_calls
-            }), 200
-        else:
-            return jsonify({'error': 'No response from AI'}), 500
+        import time
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(gemini_url, json=payload, timeout=30)
+                response.raise_for_status()
+                result = response.json()
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    candidate = result['candidates'][0]
+                    # Check for function calls
+                    function_calls = []
+                    if 'content' in candidate and 'parts' in candidate['content']:
+                        for part in candidate['content']['parts']:
+                            if 'functionCall' in part:
+                                function_calls.append(part['functionCall'])
+                    # Get text response
+                    text_response = ''
+                    if 'content' in candidate and 'parts' in candidate['content']:
+                        for part in candidate['content']['parts']:
+                            if 'text' in part:
+                                text_response = part['text']
+                                break
+                    return jsonify({
+                        'success': True,
+                        'text': text_response,
+                        'function_calls': function_calls
+                    }), 200
+                else:
+                    return jsonify({'error': 'No response from AI'}), 500
+            except requests.exceptions.RequestException as e:
+                print(f"Gemini API error (attempt {attempt+1}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(2)
+                else:
+                    raise
             
     except Exception as e:
         print(f"AI chat error: {e}")

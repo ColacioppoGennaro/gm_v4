@@ -87,12 +87,16 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   
   const getInitialFormData = useCallback(() => {
     const baseDate = defaultDate || new Date();
+    // Imposta default alle 9:00 se è mezzanotte
+    if (baseDate.getHours() === 0 && baseDate.getMinutes() === 0) {
+      baseDate.setHours(9, 0, 0, 0);
+    }
     
     // Base structure for a new event
     const defaultNewEvent = {
       title: '',
       start_datetime: toLocalISOString(baseDate),
-      end_datetime: toLocalISOString(new Date(baseDate.getTime() + 60 * 60 * 1000)),
+      end_datetime: toLocalISOString(new Date(baseDate.getTime() + 60 * 60 * 1000)), // +1 ora
       amount: undefined,
       category_id: categories[0]?.id || '',
       reminders: [],
