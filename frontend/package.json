@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:deploy": "npm run build && cd .. && git add -f frontend/dist/ && git commit -m 'build: Update frontend bundle' && git push origin main",
     "preview": "vite preview"
   },
   "dependencies": {
