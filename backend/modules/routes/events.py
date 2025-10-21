@@ -594,3 +594,215 @@ def delete_event(current_user, event_id):
             error="Failed to delete event",
             status_code=500
         ))
+
+
+# ================================
+# CATEGORIES ENDPOINTS
+# ================================
+
+@events_bp.route('/categories', methods=['GET'])
+@require_auth
+def get_categories(current_user):
+    """Get all categories for current user"""
+    try:
+        query = """
+            SELECT 
+                c.id,
+                c.name,
+                c.color,
+                c.icon,
+                c.is_default,
+                c.display_order,
+                COUNT(e.id) as event_count
+            FROM categories c
+            LEFT JOIN events e ON c.id = e.category_id AND e.user_id = %s
+            WHERE c.user_id = %s
+            GROUP BY c.id, c.name, c.color, c.icon, c.is_default, c.display_order
+            ORDER BY c.display_order ASC, c.created_at ASC
+        """
+        
+        categories = db.execute_query(query, [current_user['id'], current_user['id']], fetch_all=True)
+        
+        # Convert decimal/other types to JSON-serializable
+        for cat in categories:
+            cat['event_count'] = int(cat['event_count']) if cat['event_count'] else 0
+            cat['is_default'] = bool(cat['is_default'])
+        
+        return jsonify(create_response(
+            data={'categories': categories},
+            message=f"Found {len(categories)} categories"
+        ))
+        
+    except Exception as e:
+        logger.error(f"Error fetching categories: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to fetch categories",
+            status_code=500
+        ))
+
+
+@events_bp.route('/categories', methods=['POST'])
+@require_auth
+def create_category(current_user):
+    """Create a new category"""
+    try:
+        data = request.get_json()
+        validate_required_fields(data, ['name', 'color', 'icon'])
+        
+        # Check if category name already exists for user
+        existing = db.execute_query(
+            "SELECT id FROM categories WHERE user_id = %s AND name = %s",
+            [current_user['id'], data['name']],
+            fetch_one=True
+        )
+        
+        if existing:
+            return jsonify(create_response(
+                error="Category with this name already exists",
+                status_code=409
+            )), 409
+        
+        # Get max display order
+        max_order = db.execute_query(
+            "SELECT MAX(display_order) as max_order FROM categories WHERE user_id = %s",
+            [current_user['id']],
+            fetch_one=True
+        )
+        
+        next_order = (max_order['max_order'] if max_order and max_order['max_order'] else 0) + 1
+        
+        # Create category
+        import uuid
+        category_id = str(uuid.uuid4())
+        
+        db.execute_query(
+            """INSERT INTO categories 
+               (id, user_id, name, color, icon, is_default, display_order) 
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            [category_id, current_user['id'], data['name'], data['color'], 
+             data['icon'], False, next_order],
+            fetch_all=False
+        )
+        
+        # Return created category
+        category = db.execute_query(
+            "SELECT * FROM categories WHERE id = %s",
+            [category_id],
+            fetch_one=True
+        )
+        
+        category['event_count'] = 0
+        category['is_default'] = bool(category['is_default'])
+        
+        return jsonify(create_response(
+            data={'category': category},
+            message="Category created successfully",
+            status_code=201
+        )), 201
+        
+    except ValueError as e:
+        return jsonify(create_response(
+            error=str(e),
+            status_code=400
+        )), 400
+    except Exception as e:
+        logger.error(f"Error creating category: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to create category",
+            status_code=500
+        ))
+
+
+@events_bp.route('/categories/<category_id>', methods=['DELETE'])
+@require_auth
+def delete_category(current_user, category_id):
+    """Delete a category (must be owned by user and not default)"""
+    try:
+        # Check if category exists and belongs to user
+        category = db.execute_query(
+            "SELECT * FROM categories WHERE id = %s AND user_id = %s",
+            [category_id, current_user['id']],
+            fetch_one=True
+        )
+        
+        if not category:
+            return jsonify(create_response(
+                error="Category not found",
+                status_code=404
+            )), 404
+        
+        # Don't allow deleting default categories
+        if category['is_default']:
+            return jsonify(create_response(
+                error="Cannot delete default categories",
+                status_code=403
+            )), 403
+        
+        # Delete category (events will have category_id set to NULL due to ON DELETE SET NULL)
+        db.execute_query(
+            "DELETE FROM categories WHERE id = %s",
+            [category_id],
+            fetch_all=False
+        )
+        
+        return jsonify(create_response(
+            message="Category deleted successfully"
+        ))
+        
+    except Exception as e:
+        logger.error(f"Error deleting category: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to delete category",
+            status_code=500
+        ))
+
+
+# ================================
+# DOCUMENTS ENDPOINTS
+# ================================
+
+@events_bp.route('/documents', methods=['GET'])
+@require_auth
+def get_documents(current_user):
+    """Get all documents for current user"""
+    try:
+        query = """
+            SELECT 
+                d.id,
+                d.filename,
+                d.file_path,
+                d.file_type,
+                d.file_size,
+                d.ai_summary,
+                d.extracted_amount,
+                d.extracted_date,
+                d.extracted_reason,
+                d.upload_date,
+                d.event_id,
+                e.title as event_title
+            FROM documents d
+            LEFT JOIN events e ON d.event_id = e.id
+            WHERE d.user_id = %s
+            ORDER BY d.upload_date DESC
+        """
+        
+        documents = db.execute_query(query, [current_user['id']], fetch_all=True)
+        
+        # Serialize dates and amounts
+        for doc in documents:
+            doc['upload_date'] = serialize_datetime(doc['upload_date'])
+            doc['extracted_date'] = serialize_datetime(doc['extracted_date']) if doc.get('extracted_date') else None
+            doc['extracted_amount'] = float(doc['extracted_amount']) if doc.get('extracted_amount') else None
+            doc['file_size'] = int(doc['file_size']) if doc.get('file_size') else 0
+        
+        return jsonify(create_response(
+            data={'documents': documents},
+            message=f"Found {len(documents)} documents"
+        ))
+        
+    except Exception as e:
+        logger.error(f"Error fetching documents: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to fetch documents",
+            status_code=500
+        ))
