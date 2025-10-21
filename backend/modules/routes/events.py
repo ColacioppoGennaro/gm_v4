@@ -262,12 +262,11 @@ def create_event(current_user):
         description = data.get('description', '').strip()
         start_datetime = data['start_datetime']
         end_datetime = data['end_datetime']
-        location = data.get('location', '').strip()
         category_id = data.get('category_id')
         is_all_day = data.get('is_all_day', False)
-        recurrence_rule = data.get('recurrence_rule')
-        reminder_minutes = data.get('reminder_minutes')
         color = data.get('color', '#3B82F6')
+        status = data.get('status', 'pending')
+        amount = data.get('amount')
         
         # Validate dates
         try:
@@ -306,17 +305,15 @@ def create_event(current_user):
         query = """
             INSERT INTO events (
                 id, user_id, title, description, start_datetime, end_datetime,
-                location, category_id, is_all_day, recurrence_rule,
-                reminder_minutes, color
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                category_id, all_day, color, status, amount
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         db.execute_query(
             query,
             [
                 event_id, current_user['id'], title, description, start_datetime, end_datetime,
-                location, category_id, is_all_day, recurrence_rule,
-                reminder_minutes, color
+                category_id, is_all_day, color, status, amount
             ],
             fetch_all=False
         )
@@ -365,9 +362,7 @@ def create_event(current_user):
                     'description': description,
                     'start_datetime': start_datetime,
                     'end_datetime': end_datetime,
-                    'location': location,
-                    'is_all_day': is_all_day,
-                    'reminder_minutes': reminder_minutes
+                    'is_all_day': is_all_day
                 })
                 
                 # Update event with Google Calendar ID
