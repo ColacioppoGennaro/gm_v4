@@ -147,51 +147,78 @@ export const apiService = {
     return mockApiCall(undefined);
   },
 
-  // User settings
-  connectGoogleCalendar: (): Promise<User> => {
-    return apiRequest('/auth/google/connect', {
+  // User settings - REAL API CALLS
+  connectGoogleCalendar: async (): Promise<User> => {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google/connect`, {
       method: 'GET',
-    }).then((response) => {
-      // Open OAuth popup
-      const authWindow = window.open(
-        response.data.authorization_url,
-        'google_auth',
-        'width=600,height=700'
-      );
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get authorization URL');
+    }
+    
+    const data = await response.json();
+    
+    // Open OAuth popup
+    const authWindow = window.open(
+      data.data.authorization_url,
+      'google_auth',
+      'width=600,height=700,left=100,top=100'
+    );
+    
+    // Listen for OAuth callback
+    return new Promise((resolve, reject) => {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data.type === 'google_auth') {
+          window.removeEventListener('message', handleMessage);
+          
+          if (event.data.success) {
+            // Refresh user data
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/me`, {
+              method: 'GET',
+              headers: { 'Authorization': `Bearer ${token}` }
+            })
+              .then(r => r.json())
+              .then(res => resolve(res.data.user))
+              .catch(reject);
+          } else {
+            reject(new Error(event.data.error || 'Google authentication failed'));
+          }
+        }
+      };
       
-      // Listen for OAuth callback
-      return new Promise((resolve, reject) => {
-        const handleMessage = (event: MessageEvent) => {
-          if (event.data.type === 'google_auth') {
-            window.removeEventListener('message', handleMessage);
-            
-            if (event.data.success) {
-              // Refresh user data
-              apiRequest('/auth/me', { method: 'GET' })
-                .then((res) => resolve(res.data.user))
-                .catch(reject);
-            } else {
-              reject(new Error(event.data.error || 'Google authentication failed'));
-            }
-          }
-        };
-        
-        window.addEventListener('message', handleMessage);
-        
-        // Check if window was closed
-        const checkClosed = setInterval(() => {
-          if (authWindow?.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', handleMessage);
-            reject(new Error('Authentication cancelled'));
-          }
-        }, 500);
-      });
+      window.addEventListener('message', handleMessage);
+      
+      // Check if window was closed
+      const checkClosed = setInterval(() => {
+        if (authWindow?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
+          reject(new Error('Authentication cancelled'));
+        }
+      }, 500);
     });
   },
-  disconnectGoogleCalendar: (): Promise<User> => {
-    return apiRequest('/auth/google/disconnect', {
+  
+  disconnectGoogleCalendar: async (): Promise<User> => {
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google/disconnect`, {
       method: 'POST',
-    }).then((response) => response.data.user);
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to disconnect Google Calendar');
+    }
+    
+    const data = await response.json();
+    return data.data.user;
   }
 };
