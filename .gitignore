@@ -46,7 +46,7 @@ coverage/
 *.lcov
 
 # Build outputs
-dist/
+# dist/ - DISABLED: need to commit frontend/dist for production deployment
 build/
 out/
 .next/
