@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Category, Document, Event, User, EventStatus } from './types';
 import { apiService } from './services/apiService';
 import { Icons } from './components/Icons';
+import Auth from './components/Auth';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import CalendarView from './components/Calendar';
@@ -14,7 +15,8 @@ import EventModal from './components/EventModal';
 type View = 'dashboard' | 'calendar' | 'documents' | 'settings';
 
 const App: React.FC = () => {
-  const [showOnboarding, setShowOnboarding] = useState(false); // Default to false to skip during dev
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined);
@@ -29,6 +31,16 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Check if user is authenticated
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setIsLoading(false);
+      setIsAuthenticated(false);
+      return;
+    }
+
+    setIsAuthenticated(true);
+
     const onboardingComplete = localStorage.getItem('onboardingComplete') === 'true';
     if (!onboardingComplete) {
       setShowOnboarding(true);
@@ -48,12 +60,28 @@ const App: React.FC = () => {
             setDocuments(documentsData);
         } catch (error) {
             console.error("Failed to load initial data", error);
+            // If load fails, might be invalid token
+            if ((error as any)?.message?.includes('401') || (error as any)?.message?.includes('Authentication')) {
+              localStorage.removeItem('auth_token');
+              setIsAuthenticated(false);
+            }
         } finally {
             setIsLoading(false);
         }
     };
     loadData();
   }, []);
+
+  const handleLoginSuccess = (userData: User) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+    
+    // Check onboarding
+    const onboardingComplete = localStorage.getItem('onboardingComplete') === 'true';
+    if (!onboardingComplete && !userData.onboarding_completed) {
+      setShowOnboarding(true);
+    }
+  };
 
   const handleOnboardingComplete = () => {
     localStorage.setItem('onboardingComplete', 'true');
@@ -125,6 +153,11 @@ const App: React.FC = () => {
         return <Dashboard events={events} onToggleStatus={handleToggleEventStatus} categories={categories} onEditEvent={handleOpenEventModal} />;
     }
   };
+
+  // Show auth screen if not authenticated
+  if (!isAuthenticated && !isLoading) {
+    return <Auth onSuccess={handleLoginSuccess} />;
+  }
 
   if (showOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} />;

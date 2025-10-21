@@ -85,7 +85,10 @@ const Settings: React.FC<SettingsProps> = ({ user, categories, setCategories, on
                 </button>
             </div>
         </div>
-         <button className="w-full text-left p-3 mt-4 bg-surface rounded-lg hover:bg-gray-700/50 text-red-400 font-semibold">
+         <button 
+            onClick={() => apiService.logout()} 
+            className="w-full text-left p-3 mt-4 bg-surface rounded-lg hover:bg-gray-700/50 text-red-400 font-semibold"
+         >
             Logout
         </button>
       </div>

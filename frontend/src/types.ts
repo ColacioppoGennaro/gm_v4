@@ -36,6 +36,7 @@ export interface User {
   email: string;
   subscription_type: 'free' | 'pro';
   google_calendar_connected: boolean;
+  onboarding_completed?: boolean;
 }
 
 export interface Document {
