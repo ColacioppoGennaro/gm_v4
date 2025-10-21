@@ -1,28 +1,12 @@
 # SmartLife Organizer v4 - Apache Configuration
-# Passenger WSGI + React SPA routing
+# cPanel Passenger WSGI Configuration
 
-# Enable rewrite engine
-RewriteEngine On
-
-# Passenger Configuration
-PassengerAppRoot "/home/ywrloefq/public_html/gm_v4"
-PassengerBaseURI "/gm_v4"
-PassengerPython "/home/ywrloefq/virtualenv/public_html/gm_v4/3.9/bin/python"
-
-# API requests → Passenger (Python backend)
-# Match any request starting with /gm_v4/api/
-RewriteCond %{REQUEST_URI} ^/gm_v4/api/ [NC]
-RewriteRule .* - [L]
-
-# Static files from frontend/dist → serve directly
-RewriteCond %{REQUEST_URI} ^/gm_v4/frontend/dist/
-RewriteRule .* - [L]
-
-# React SPA routing - redirect all other requests to index.html
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/gm_v4/api/
-RewriteRule ^(.*)$ /gm_v4/frontend/dist/index.html [L]
+# Passenger handles ALL requests - Python Flask app serves both API and frontend
+PassengerEnabled on
+PassengerAppRoot /home/ywrloefq/public_html/gm_v4
+PassengerAppType wsgi
+PassengerStartupFile passenger_wsgi.py
+PassengerPython /home/ywrloefq/virtualenv/public_html/gm_v4/3.9/bin/python
 
 # Disable directory browsing
 Options -Indexes

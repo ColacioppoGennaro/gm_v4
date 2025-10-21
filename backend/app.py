@@ -132,13 +132,45 @@ def create_app():
             'total': len(routes)
         })
     
-    # Root endpoint
-    @app.route('/', methods=['GET'])
-    def root():
-        """Root endpoint"""
+    # Serve frontend static files
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        """Serve React frontend or API"""
+        # If path starts with 'api/', it's handled by blueprints (404 if not found)
+        if path.startswith('api/'):
+            return jsonify({
+                'error': 'API endpoint not found',
+                'path': path
+            }), 404
+        
+        # Serve static files from frontend/dist
+        from flask import send_from_directory, send_file
+        import os
+        
+        frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
+        
+        # If path is empty or doesn't exist, serve index.html (SPA routing)
+        if path == '':
+            index_path = os.path.join(frontend_dir, 'index.html')
+            if os.path.exists(index_path):
+                return send_file(index_path)
+        
+        # Try to serve the requested file
+        file_path = os.path.join(frontend_dir, path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return send_from_directory(frontend_dir, path)
+        
+        # Fallback to index.html for SPA routing
+        index_path = os.path.join(frontend_dir, 'index.html')
+        if os.path.exists(index_path):
+            return send_file(index_path)
+        
+        # If frontend doesn't exist, show API info
         return jsonify({
             'message': 'SmartLife Organizer API v4.0',
             'status': 'running',
+            'frontend': 'not found',
             'timestamp': datetime.utcnow().isoformat()
         })
     
