@@ -7,8 +7,9 @@
  * DELETE THIS FILE AFTER RUNNING!
  */
 
-// Load environment variables
-require_once __DIR__ . '/backend/config.php';
+// Error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // Prevent running twice
 $lock_file = __DIR__ . '/.migration_google_calendar_done';
@@ -16,18 +17,47 @@ if (file_exists($lock_file)) {
     die('✅ Migration already completed! Delete this file: ' . basename(__FILE__));
 }
 
-// Database connection
+// Load .env file manually
+$env_file = __DIR__ . '/.env';
+if (file_exists($env_file)) {
+    $lines = file($env_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue; // Skip comments
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value, " \t\n\r\0\x0B\"'"); // Remove quotes
+        putenv("$name=$value");
+        $_ENV[$name] = $value;
+        $_SERVER[$name] = $value;
+    }
+}
+
+// Database connection with error handling
 $host = getenv('DB_HOST') ?: '127.0.0.1';
 $dbname = getenv('DB_NAME') ?: 'ywrloefq_gm_v4';
 $user = getenv('DB_USER') ?: 'ywrloefq_gm_user';
 $pass = getenv('DB_PASS') ?: '';
 
+// Debug info
+echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Migration Status</title>";
+echo "<style>body{font-family:Arial;max-width:800px;margin:50px auto;padding:20px;}";
+echo "pre{background:#1F2937;color:#F3F4F6;padding:20px;border-radius:8px;overflow:auto;}";
+echo ".error{color:#EF4444;}.success{color:#10B981;}</style></head><body>";
+
+echo "<h1>🚀 Google Calendar Migration</h1>";
+echo "<pre>";
+
+echo "📋 Configuration:\n";
+echo "   Host: $host\n";
+echo "   Database: $dbname\n";
+echo "   User: $user\n";
+echo "   Password: " . (empty($pass) ? "EMPTY" : "***HIDDEN***") . "\n\n";
+
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    echo "<h1>🚀 Google Calendar Migration</h1>";
-    echo "<pre>";
+    echo "✅ Database connection successful!\n\n";
     
     // Check current events table structure
     echo "📋 Checking current events table structure...\n";
@@ -135,25 +165,29 @@ try {
     echo "</pre>";
     
 } catch (PDOException $e) {
-    echo "<pre style='color: red;'>";
-    echo "❌ Database error: " . $e->getMessage() . "\n";
     echo "</pre>";
+    echo "<pre class='error'>";
+    echo "❌ Database error:\n\n";
+    echo "Error: " . $e->getMessage() . "\n";
+    echo "Code: " . $e->getCode() . "\n\n";
+    echo "Possible causes:\n";
+    echo "1. Wrong database credentials in .env file\n";
+    echo "2. Database server not accessible\n";
+    echo "3. Database doesn't exist\n";
+    echo "4. User doesn't have permissions\n\n";
+    echo "Check your .env file at: " . $env_file . "\n";
+    echo "</pre></body></html>";
+    exit(1);
+} catch (Exception $e) {
+    echo "</pre>";
+    echo "<pre class='error'>";
+    echo "❌ Unexpected error:\n\n";
+    echo $e->getMessage() . "\n";
+    echo "</pre></body></html>";
     exit(1);
 }
+
+echo "</body></html>";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Migration Complete</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #10B981; }
-        pre { background: #1F2937; color: #F3F4F6; padding: 20px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-    <p>✅ Database migration completed! Google Calendar integration is now ready.</p>
-    <p><strong>⚠️ IMPORTANT:</strong> Delete this file for security: <code>migrate_google_calendar.php</code></p>
-</body>
-</html>
+
 ```
