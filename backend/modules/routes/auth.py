@@ -361,3 +361,119 @@ def update_profile(current_user):
             error="Profile update failed",
             status_code=500
         ))
+
+
+@auth_bp.route('/google/connect', methods=['GET'])
+@require_auth
+def google_connect(current_user):
+    """Initiate Google Calendar OAuth flow"""
+    try:
+        from modules.services.google_calendar_service import GoogleCalendarService
+        
+        authorization_url = GoogleCalendarService.get_authorization_url(current_user['id'])
+        
+        return jsonify(create_response(
+            data={'authorization_url': authorization_url},
+            message="Redirect user to authorization URL"
+        ))
+        
+    except Exception as e:
+        logger.error(f"Google connect failed: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to initiate Google Calendar connection",
+            status_code=500
+        ))
+
+
+@auth_bp.route('/google/callback', methods=['GET'])
+def google_callback():
+    """Handle Google OAuth callback"""
+    try:
+        from modules.services.google_calendar_service import GoogleCalendarService
+        
+        code = request.args.get('code')
+        state = request.args.get('state')  # Contains user_id
+        error = request.args.get('error')
+        
+        if error:
+            logger.warning(f"Google OAuth error: {error}")
+            # Redirect to frontend with error
+            from config import Config
+            return f"""
+                <html>
+                <script>
+                    window.opener.postMessage({{type: 'google_auth', success: false, error: '{error}'}}, '{Config.APP_URI}');
+                    window.close();
+                </script>
+                </html>
+            """
+        
+        if not code or not state:
+            return jsonify(create_response(
+                error="Missing authorization code or state",
+                status_code=400
+            ))
+        
+        # Exchange code for tokens and store
+        user = GoogleCalendarService.handle_oauth_callback(code, state)
+        
+        # Redirect to frontend with success
+        from config import Config
+        return f"""
+            <html>
+            <script>
+                window.opener.postMessage({{type: 'google_auth', success: true}}, '{Config.APP_URI}');
+                window.close();
+            </script>
+            </html>
+        """
+        
+    except Exception as e:
+        logger.error(f"Google callback failed: {str(e)}")
+        from config import Config
+        return f"""
+            <html>
+            <script>
+                window.opener.postMessage({{type: 'google_auth', success: false, error: 'Connection failed'}}, '{Config.APP_URI}');
+                window.close();
+            </script>
+            </html>
+        """
+
+
+@auth_bp.route('/google/disconnect', methods=['POST'])
+@require_auth
+def google_disconnect(current_user):
+    """Disconnect Google Calendar"""
+    try:
+        from modules.services.google_calendar_service import GoogleCalendarService
+        from modules.utils.database import db
+        
+        GoogleCalendarService.disconnect_calendar(current_user['id'])
+        
+        # Get updated user
+        user = db.execute_query(
+            "SELECT * FROM users WHERE id = %s",
+            [current_user['id']],
+            fetch_one=True
+        )
+        
+        user_data = {
+            'id': user['id'],
+            'email': user['email'],
+            'subscription_type': user['subscription_type'],
+            'onboarding_completed': user['onboarding_completed'],
+            'google_calendar_connected': user['google_calendar_connected']
+        }
+        
+        return jsonify(create_response(
+            data={'user': user_data},
+            message="Google Calendar disconnected successfully"
+        ))
+        
+    except Exception as e:
+        logger.error(f"Google disconnect failed: {str(e)}")
+        return jsonify(create_response(
+            error="Failed to disconnect Google Calendar",
+            status_code=500
+        ))

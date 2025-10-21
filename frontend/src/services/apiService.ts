@@ -149,11 +149,49 @@ export const apiService = {
 
   // User settings
   connectGoogleCalendar: (): Promise<User> => {
-    MOCK_USER.google_calendar_connected = true;
-    return mockApiCall(MOCK_USER);
+    return apiRequest('/auth/google/connect', {
+      method: 'GET',
+    }).then((response) => {
+      // Open OAuth popup
+      const authWindow = window.open(
+        response.data.authorization_url,
+        'google_auth',
+        'width=600,height=700'
+      );
+      
+      // Listen for OAuth callback
+      return new Promise((resolve, reject) => {
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data.type === 'google_auth') {
+            window.removeEventListener('message', handleMessage);
+            
+            if (event.data.success) {
+              // Refresh user data
+              apiRequest('/auth/me', { method: 'GET' })
+                .then((res) => resolve(res.data.user))
+                .catch(reject);
+            } else {
+              reject(new Error(event.data.error || 'Google authentication failed'));
+            }
+          }
+        };
+        
+        window.addEventListener('message', handleMessage);
+        
+        // Check if window was closed
+        const checkClosed = setInterval(() => {
+          if (authWindow?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            reject(new Error('Authentication cancelled'));
+          }
+        }, 500);
+      });
+    });
   },
   disconnectGoogleCalendar: (): Promise<User> => {
-    MOCK_USER.google_calendar_connected = false;
-    return mockApiCall(MOCK_USER);
+    return apiRequest('/auth/google/disconnect', {
+      method: 'POST',
+    }).then((response) => response.data.user);
   }
 };

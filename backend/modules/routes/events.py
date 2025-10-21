@@ -356,6 +356,33 @@ def create_event(current_user):
         
         logger.info(f"Event created: {event_id} by user {current_user['id']}")
         
+        # Sync with Google Calendar if connected
+        if current_user.get('google_calendar_connected'):
+            try:
+                from modules.services.google_calendar_service import GoogleCalendarService
+                google_event_id = GoogleCalendarService.create_event(current_user['id'], {
+                    'title': title,
+                    'description': description,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'location': location,
+                    'is_all_day': is_all_day,
+                    'reminder_minutes': reminder_minutes
+                })
+                
+                # Update event with Google Calendar ID
+                db.execute_query(
+                    "UPDATE events SET google_event_id = %s, last_synced_at = NOW() WHERE id = %s",
+                    [google_event_id, event_id],
+                    fetch_all=False
+                )
+                
+                created_event['google_event_id'] = google_event_id
+                logger.info(f"Event synced to Google Calendar: {google_event_id}")
+            except Exception as e:
+                logger.warning(f"Failed to sync event to Google Calendar: {str(e)}")
+                # Don't fail the request if Google sync fails
+        
         return jsonify(create_response(
             data=created_event,
             message="Event created successfully",
@@ -487,6 +514,27 @@ def update_event(current_user, event_id):
         
         logger.info(f"Event updated: {event_id} by user {current_user['id']}")
         
+        # Sync with Google Calendar if connected
+        if current_user.get('google_calendar_connected') and updated_event.get('google_event_id'):
+            try:
+                from modules.services.google_calendar_service import GoogleCalendarService
+                GoogleCalendarService.update_event(
+                    current_user['id'],
+                    updated_event['google_event_id'],
+                    data
+                )
+                
+                # Update sync timestamp
+                db.execute_query(
+                    "UPDATE events SET last_synced_at = NOW() WHERE id = %s",
+                    [event_id],
+                    fetch_all=False
+                )
+                
+                logger.info(f"Event synced to Google Calendar: {updated_event['google_event_id']}")
+            except Exception as e:
+                logger.warning(f"Failed to sync event to Google Calendar: {str(e)}")
+        
         return jsonify(create_response(
             data=updated_event,
             message="Event updated successfully"
@@ -507,7 +555,7 @@ def delete_event(current_user, event_id):
     try:
         # Check if event exists and belongs to user
         existing = db.execute_query(
-            "SELECT id FROM events WHERE id = %s AND user_id = %s AND deleted_at IS NULL",
+            "SELECT id, google_event_id FROM events WHERE id = %s AND user_id = %s AND deleted_at IS NULL",
             [event_id, current_user['id']],
             fetch_one=True
         )
@@ -517,6 +565,15 @@ def delete_event(current_user, event_id):
                 error="Event not found",
                 status_code=404
             ))
+        
+        # Delete from Google Calendar if synced
+        if current_user.get('google_calendar_connected') and existing.get('google_event_id'):
+            try:
+                from modules.services.google_calendar_service import GoogleCalendarService
+                GoogleCalendarService.delete_event(current_user['id'], existing['google_event_id'])
+                logger.info(f"Event deleted from Google Calendar: {existing['google_event_id']}")
+            except Exception as e:
+                logger.warning(f"Failed to delete event from Google Calendar: {str(e)}")
         
         # Soft delete
         db.execute_query(
