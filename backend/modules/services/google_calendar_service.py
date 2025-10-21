@@ -107,7 +107,12 @@ class GoogleCalendarService:
                 WHERE id = %s
             """
             
-            expires_at = datetime.now() + timedelta(seconds=credentials.expiry.timestamp() - datetime.now().timestamp()) if credentials.expiry else None
+            # Calculate expiry time (typically 1 hour from now)
+            if credentials.expiry:
+                expires_at = credentials.expiry
+            else:
+                # Default to 1 hour if no expiry provided
+                expires_at = datetime.now() + timedelta(hours=1)
             
             db.execute_query(
                 query,
