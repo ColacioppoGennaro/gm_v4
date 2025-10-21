@@ -115,6 +115,23 @@ def create_app():
                 'traceback': traceback.format_exc()
             }), 500
     
+    # Debug routes endpoint
+    @app.route('/api/debug/routes', methods=['GET'])
+    def debug_routes():
+        """List all registered routes"""
+        routes = []
+        for rule in app.url_map.iter_rules():
+            routes.append({
+                'endpoint': rule.endpoint,
+                'methods': list(rule.methods),
+                'path': str(rule)
+            })
+        return jsonify({
+            'success': True,
+            'routes': sorted(routes, key=lambda x: x['path']),
+            'total': len(routes)
+        })
+    
     # Root endpoint
     @app.route('/', methods=['GET'])
     def root():
