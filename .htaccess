@@ -1,7 +1,18 @@
 # SmartLife Organizer v4 - Apache Configuration
 # cPanel Passenger WSGI Configuration
 
-# Passenger handles ALL requests - Python Flask app serves both API and frontend
+# Serve static files directly with Apache (bypass Passenger)
+<FilesMatch "\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$">
+    PassengerEnabled off
+    Header set Cache-Control "public, max-age=31536000"
+</FilesMatch>
+
+# Force correct MIME types for static files
+AddType text/css .css
+AddType application/javascript .js
+AddType application/json .map
+
+# Passenger handles Python app for everything else
 PassengerEnabled on
 PassengerAppRoot /home/ywrloefq/public_html/gm_v4
 PassengerAppType wsgi
