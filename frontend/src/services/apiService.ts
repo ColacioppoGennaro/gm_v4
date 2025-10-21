@@ -124,7 +124,7 @@ export const apiService = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to create event');
-    return data.data.event;
+    return data.data; // Backend ritorna { data: {...evento...}, success: true }
   },
 
   updateEvent: async (eventData: Event): Promise<Event> => {
@@ -135,7 +135,7 @@ export const apiService = {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Failed to update event');
-    return data.data.event;
+    return data.data; // Backend ritorna { data: {...evento...}, success: true }
   },
   
   deleteEvent: async (eventId: string): Promise<void> => {
