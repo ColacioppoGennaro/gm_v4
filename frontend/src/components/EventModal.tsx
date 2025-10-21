@@ -157,11 +157,14 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         end_datetime: currentFormData.end_datetime ? new Date(currentFormData.end_datetime).toISOString() : undefined,
     };
     try {
+        console.log('[EventModal] Calling onSave...', submissionData);
         await onSave(submissionData);
+        console.log('[EventModal] onSave completed successfully');
         // Non chiudiamo qui - lasciamo che il parent lo faccia dopo aver aggiornato lo state
     } catch (error) {
         console.error("Errore nel salvataggio dell'evento:", error);
     } finally {
+        console.log('[EventModal] Setting isSaving to false');
         setIsSaving(false);
     }
   }, [onSave]);

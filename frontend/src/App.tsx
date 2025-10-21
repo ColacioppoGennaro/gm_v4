@@ -110,14 +110,18 @@ const App: React.FC = () => {
   };
   
   const handleAddEvent = useCallback(async (eventData: Omit<Event, 'id'>) => {
+    console.log('[handleAddEvent] Starting...', eventData);
     const newEvent = await apiService.addEvent(eventData);
+    console.log('[handleAddEvent] Event created:', newEvent);
     const category = categories.find(c => c.id === newEvent.category_id);
     setEvents(prev => [...prev, {...newEvent, category}].sort((a,b) => new Date(a.start_datetime).getTime() - new Date(b.start_datetime).getTime()));
     setCategories(prev => prev.map(c => c.id === newEvent.category_id ? { ...c, event_count: (c.event_count || 0) + 1 } : c));
+    console.log('[handleAddEvent] Closing modal...');
     setIsEventModalOpen(false);
     setEventToEdit(undefined);
     setNewEventDate(undefined);
     setIsAiMode(false);
+    console.log('[handleAddEvent] Done!');
   }, [categories]);
 
   const handleUpdateEvent = useCallback(async (eventData: Event) => {
