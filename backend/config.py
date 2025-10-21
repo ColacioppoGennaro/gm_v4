@@ -31,7 +31,10 @@ class Config:
     GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
     GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
     GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI', '')
-    GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+    GOOGLE_SCOPES = [
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/calendar'
+    ]
     
     # Push notifications
     PWA_PUSH = os.getenv('PWA_PUSH', 'true').lower() == 'true'

@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 class GoogleCalendarService:
     """Service for Google Calendar integration"""
     
-    SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+    SCOPES = [
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/calendar'
+    ]
     
     @staticmethod
     def get_oauth_flow(state=None):
