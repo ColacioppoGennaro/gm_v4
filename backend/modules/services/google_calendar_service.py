@@ -96,7 +96,17 @@ class GoogleCalendarService:
             flow = GoogleCalendarService.get_oauth_flow()
             
             logger.info(f"[OAuth] Fetching token with code: {authorization_code[:20]}...")
-            flow.fetch_token(code=authorization_code)
+            try:
+                token = flow.fetch_token(code=authorization_code)
+                logger.info(f"[OAuth] Token OK. Has refresh_token? {bool(token.get('refresh_token'))}")
+            except Exception as e:
+                if hasattr(e, 'response') and e.response is not None:
+                    logger.error(f"[OAuth] fetch_token FAILED: status={e.response.status_code} body={e.response.text}")
+                else:
+                    logger.error(f"[OAuth] fetch_token FAILED (no response): {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                raise
             
             credentials = flow.credentials
             logger.info(f"[OAuth] Token fetched successfully")
