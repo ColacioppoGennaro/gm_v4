@@ -50,7 +50,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onRequestToggleStatus, onE
         <div className="flex items-center justify-between mt-1 text-sm text-text-secondary">
           <div className="flex items-center gap-3">
             {has_document && <Icons.Document className="h-5 w-5" title="Documento allegato" />}
-            {reminders.length > 0 && <Icons.Bell className="h-5 w-5" title="Promemoria attivo" />}
+            {reminders && reminders.length > 0 && <Icons.Bell className="h-5 w-5" title="Promemoria attivo" />}
           </div>
           <span className="font-medium">{eventTime}</span>
         </div>
