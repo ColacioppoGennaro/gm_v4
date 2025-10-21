@@ -52,6 +52,10 @@ out/
 .next/
 .nuxt/
 
+# BUT: Always include frontend/dist files (needed for production)
+!frontend/dist/
+!frontend/dist/**/*
+
 # Temporary folders
 tmp/
 temp/
