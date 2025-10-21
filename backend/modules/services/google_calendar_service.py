@@ -89,12 +89,19 @@ class GoogleCalendarService:
         """
         try:
             user_id = state
+            logger.info(f"[OAuth] Starting callback for user_id: {user_id}")
             
             # Exchange code for tokens
+            logger.info(f"[OAuth] Creating flow with redirect_uri: {Config.GOOGLE_REDIRECT_URI}")
             flow = GoogleCalendarService.get_oauth_flow()
+            
+            logger.info(f"[OAuth] Fetching token with code: {authorization_code[:20]}...")
             flow.fetch_token(code=authorization_code)
             
             credentials = flow.credentials
+            logger.info(f"[OAuth] Token fetched successfully")
+            logger.info(f"[OAuth] Has refresh_token: {credentials.refresh_token is not None}")
+            logger.info(f"[OAuth] Token expiry: {credentials.expiry}")
             
             # Store tokens in database
             query = """
@@ -114,6 +121,7 @@ class GoogleCalendarService:
                 # Default to 1 hour if no expiry provided
                 expires_at = datetime.now() + timedelta(hours=1)
             
+            logger.info(f"[OAuth] Storing tokens in database for user {user_id}")
             db.execute_query(
                 query,
                 [
@@ -137,7 +145,9 @@ class GoogleCalendarService:
             return user
             
         except Exception as e:
-            logger.error(f"OAuth callback error: {str(e)}")
+            logger.error(f"[OAuth] Callback error: {str(e)}")
+            import traceback
+            logger.error(f"[OAuth] Traceback: {traceback.format_exc()}")
             raise
     
     @staticmethod

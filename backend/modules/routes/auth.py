@@ -395,6 +395,13 @@ def google_callback():
         state = request.args.get('state')  # Contains user_id
         error = request.args.get('error')
         
+        # DEBUG: Log what we received
+        logger.info(f"=== OAUTH CALLBACK DEBUG ===")
+        logger.info(f"Code: {code[:20] if code else 'None'}...")
+        logger.info(f"State (user_id): {state}")
+        logger.info(f"Error: {error}")
+        logger.info(f"All params: {dict(request.args)}")
+        
         from config import Config
         
         if error:
@@ -402,14 +409,19 @@ def google_callback():
             return redirect(f"{Config.APP_URI}?google_auth=error&message={error}")
         
         if not code or not state:
+            logger.error("Missing code or state parameter")
             return redirect(f"{Config.APP_URI}?google_auth=error&message=missing_code")
         
         # Exchange code for tokens and store
         try:
+            logger.info(f"Attempting to exchange code for user {state}")
             user = GoogleCalendarService.handle_oauth_callback(code, state)
+            logger.info(f"OAuth successful for user {state}")
             return redirect(f"{Config.APP_URI}?google_auth=success")
         except Exception as e:
             logger.error(f"OAuth token exchange failed: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             return redirect(f"{Config.APP_URI}?google_auth=error&message=connection_failed")
         
     except Exception as e:
