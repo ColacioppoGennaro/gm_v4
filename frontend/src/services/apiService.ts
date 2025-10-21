@@ -202,7 +202,7 @@ export const apiService = {
   },
 
   // User settings - REAL API CALLS
-  connectGoogleCalendar: async (): Promise<User> => {
+  connectGoogleCalendar: async (): Promise<void> => {
     const token = localStorage.getItem('auth_token');
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/google/connect`, {
       method: 'GET',
@@ -217,45 +217,11 @@ export const apiService = {
     
     const data = await response.json();
     
-    // Open OAuth popup
-    const authWindow = window.open(
-      data.data.authorization_url,
-      'google_auth',
-      'width=600,height=700,left=100,top=100'
-    );
+    // Save current location to return after OAuth
+    localStorage.setItem('oauth_return_path', window.location.pathname);
     
-    // Listen for OAuth callback
-    return new Promise((resolve, reject) => {
-      const handleMessage = (event: MessageEvent) => {
-        if (event.data.type === 'google_auth') {
-          window.removeEventListener('message', handleMessage);
-          
-          if (event.data.success) {
-            // Refresh user data
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
-              method: 'GET',
-              headers: { 'Authorization': `Bearer ${token}` }
-            })
-              .then(r => r.json())
-              .then(res => resolve(res.data.user))
-              .catch(reject);
-          } else {
-            reject(new Error(event.data.error || 'Google authentication failed'));
-          }
-        }
-      };
-      
-      window.addEventListener('message', handleMessage);
-      
-      // Check if window was closed
-      const checkClosed = setInterval(() => {
-        if (authWindow?.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', handleMessage);
-          reject(new Error('Authentication cancelled'));
-        }
-      }, 500);
-    });
+    // Redirect to Google OAuth (full page redirect instead of popup)
+    window.location.href = data.data.authorization_url;
   },
   
   disconnectGoogleCalendar: async (): Promise<User> => {

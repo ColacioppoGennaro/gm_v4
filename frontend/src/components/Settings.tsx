@@ -17,16 +17,17 @@ const Settings: React.FC<SettingsProps> = ({ user, categories, setCategories, on
   const handleGoogleSyncToggle = async () => {
     setIsSyncing(true);
     try {
-        let updatedUser;
         if (user.google_calendar_connected) {
-            updatedUser = await apiService.disconnectGoogleCalendar();
+            const updatedUser = await apiService.disconnectGoogleCalendar();
+            onUserUpdate(updatedUser);
+            setIsSyncing(false);
         } else {
-            updatedUser = await apiService.connectGoogleCalendar();
+            // Redirect to Google OAuth (user will return with ?google_auth=success)
+            await apiService.connectGoogleCalendar();
+            // Don't set isSyncing to false here - page will reload after OAuth
         }
-        onUserUpdate(updatedUser);
     } catch(e) {
         console.error("Failed to toggle Google Sync", e);
-    } finally {
         setIsSyncing(false);
     }
   }

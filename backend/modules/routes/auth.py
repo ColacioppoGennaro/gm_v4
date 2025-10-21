@@ -2,7 +2,7 @@
 Authentication routes for SmartLife Organizer
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, redirect
 from modules.utils.auth import AuthManager, require_auth
 from modules.utils.database import create_response, validate_required_fields
 from modules.services.email_service import EmailService
@@ -395,38 +395,22 @@ def google_callback():
         state = request.args.get('state')  # Contains user_id
         error = request.args.get('error')
         
+        from config import Config
+        
         if error:
             logger.warning(f"Google OAuth error: {error}")
-            # Redirect to frontend with error
-            from config import Config
-            return f"""
-                <html>
-                <script>
-                    window.opener.postMessage({{type: 'google_auth', success: false, error: '{error}'}}, '{Config.APP_URI}');
-                    window.close();
-                </script>
-                </html>
-            """
+            return redirect(f"{Config.APP_URI}?google_auth=error&message={error}")
         
         if not code or not state:
-            return jsonify(create_response(
-                error="Missing authorization code or state",
-                status_code=400
-            ))
+            return redirect(f"{Config.APP_URI}?google_auth=error&message=missing_code")
         
         # Exchange code for tokens and store
-        user = GoogleCalendarService.handle_oauth_callback(code, state)
-        
-        # Redirect to frontend with success
-        from config import Config
-        return f"""
-            <html>
-            <script>
-                window.opener.postMessage({{type: 'google_auth', success: true}}, '{Config.APP_URI}');
-                window.close();
-            </script>
-            </html>
-        """
+        try:
+            user = GoogleCalendarService.handle_oauth_callback(code, state)
+            return redirect(f"{Config.APP_URI}?google_auth=success")
+        except Exception as e:
+            logger.error(f"OAuth token exchange failed: {str(e)}")
+            return redirect(f"{Config.APP_URI}?google_auth=error&message=connection_failed")
         
     except Exception as e:
         logger.error(f"Google callback failed: {str(e)}")

@@ -31,6 +31,20 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Check for Google OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const googleAuth = urlParams.get('google_auth');
+    
+    if (googleAuth === 'success') {
+      // Remove query params and reload user data
+      window.history.replaceState({}, '', window.location.pathname);
+      setCurrentView('settings'); // Navigate to settings to show success
+    } else if (googleAuth === 'error') {
+      const message = urlParams.get('message') || 'Unknown error';
+      console.error('Google OAuth error:', message);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
     // Check if user is authenticated
     const token = localStorage.getItem('auth_token');
     if (!token) {
