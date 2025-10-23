@@ -13,11 +13,8 @@ interface AIAssistantProps {
   onClose: () => void;
   onOpenEventForm?: (data: any) => void;
   onOpenDocumentUpload?: () => void;
-  events?: any[];  // Events for AI to search
+  events?: any[];
 }
-
-type AssistantMode = 'idle' | 'chat' | 'voice' | 'photo' | 'document';
-type IntentType = 'create_event' | 'upload_document' | 'question' | 'unknown';
 
 const AIAssistant: React.FC<AIAssistantProps> = ({
   isOpen,
@@ -26,30 +23,26 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   onOpenDocumentUpload,
   events = []
 }) => {
-  const [mode, setMode] = useState<AssistantMode>('idle');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [detectedIntent, setDetectedIntent] = useState<IntentType | null>(null);
-  const [eventData, setEventData] = useState<any>(null); // Store event data inline
+  const [eventData, setEventData] = useState<any>(null);
+  const [showEventForm, setShowEventForm] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const dragStartY = useRef<number>(0);
-  const currentSheetY = useRef<number>(0);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Focus input when mode changes to chat
+  // Focus input when opened
   useEffect(() => {
-    if (mode === 'chat' && inputRef.current) {
+    if (isOpen && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [mode]);
+  }, [isOpen]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -65,7 +58,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     setIsLoading(true);
 
     try {
-      // Send to AI chat endpoint with events for search
       const response = await apiService.aiChat([...messages, userMessage], events);
 
       const aiMessage: Message = {
@@ -76,26 +68,22 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
       setMessages(prev => [...prev, aiMessage]);
 
-      // Check for function calls (intent recognition)
+      // Check for function calls
       if (response.function_calls && response.function_calls.length > 0) {
         const functionCall = response.function_calls[0];
 
         if (functionCall.name === 'update_event_details') {
-          setDetectedIntent('create_event');
-          // Update event data inline (merge with existing data)
+          // Update event data and show form
           setEventData((prev: any) => ({
             ...prev,
             ...functionCall.args
           }));
+          setShowEventForm(true);
         } else if (functionCall.name === 'save_and_close_event') {
-          // Save event to backend
-          if (eventData) {
-            // Call the onOpenEventForm to actually save the event
-            if (onOpenEventForm) {
-              onOpenEventForm(eventData);
-            }
+          // Save event
+          if (eventData && onOpenEventForm) {
+            onOpenEventForm(eventData);
           }
-          // Event saved, close assistant
           setTimeout(() => {
             onClose();
             resetAssistant();
@@ -116,86 +104,31 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     }
   };
 
-  const handleVoiceStart = () => {
-    setMode('voice');
-    setIsRecording(true);
-    // TODO: Implement Gemini Live Voice
-    console.log('🎤 Voice recording started');
+  const handleVoiceInput = () => {
+    // TODO: Implement voice input
+    console.log('Voice input');
   };
 
-  const handleVoiceStop = () => {
-    setIsRecording(false);
-    console.log('🎤 Voice recording stopped');
-  };
-
-  const handlePhotoCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    setMode('photo');
-    setIsLoading(true);
-
-    try {
-      // Upload and analyze photo
-      const response = await apiService.aiAnalyzeDocument(file);
-
-      const aiMessage: Message = {
-        role: 'ai',
-        content: `Ho analizzato la foto. Tipo: ${response.document_type}. ${response.reason}`,
-        timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-      setMode('chat');
-
-    } catch (error) {
-      console.error('Photo analysis error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    console.log('Photo upload:', file);
+    // TODO: Implement photo analysis
   };
 
   const handleDocumentUpload = () => {
-    setMode('document');
     if (onOpenDocumentUpload) {
       onOpenDocumentUpload();
     }
+    onClose();
   };
 
   const resetAssistant = () => {
-    setMode('idle');
     setMessages([]);
     setInputText('');
-    setDetectedIntent(null);
     setEventData(null);
+    setShowEventForm(false);
     setIsLoading(false);
-    setIsRecording(false);
-  };
-
-  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    dragStartY.current = clientY;
-    currentSheetY.current = clientY;
-  };
-
-  const handleDragMove = (e: React.TouchEvent | React.MouseEvent) => {
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const deltaY = clientY - dragStartY.current;
-
-    // Only allow dragging down to close
-    if (deltaY > 0) {
-      currentSheetY.current = clientY;
-    }
-  };
-
-  const handleDragEnd = () => {
-    const deltaY = currentSheetY.current - dragStartY.current;
-
-    // If dragged down more than 100px, close
-    if (deltaY > 100) {
-      onClose();
-      resetAssistant();
-    }
   };
 
   if (!isOpen) return null;
@@ -211,129 +144,72 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         }}
       />
 
-      {/* Bottom Sheet */}
-      <div
-        className={`fixed left-0 right-0 max-w-2xl mx-auto bg-surface rounded-t-3xl shadow-2xl z-50 transition-all duration-300 ${
-          detectedIntent === 'create_event' ? 'top-[5%] bottom-0' : 'top-[40%] bottom-0'
-        }`}
-        onTouchStart={handleDragStart}
-        onTouchMove={handleDragMove}
-        onTouchEnd={handleDragEnd}
-        onMouseDown={handleDragStart}
-        onMouseMove={handleDragMove}
-        onMouseUp={handleDragEnd}
-      >
-        {/* Drag Handle */}
-        <div className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing">
-          <div className="w-12 h-1.5 bg-gray-600 rounded-full" />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-              <Icons.Sparkles className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-bold text-lg">AI Assistant</h2>
-              <p className="text-xs text-text-secondary">
-                {mode === 'idle' && 'Come posso aiutarti?'}
-                {mode === 'chat' && 'Chatta con me'}
-                {mode === 'voice' && isRecording ? 'Sto ascoltando...' : 'Voice mode'}
-                {mode === 'photo' && 'Analizza foto'}
-                {mode === 'document' && 'Carica documento'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              onClose();
-              resetAssistant();
-            }}
-            className="p-2 hover:bg-gray-700 rounded-full transition-colors"
-          >
-            <Icons.Close className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-
-          {/* Idle State - Show 4 Buttons */}
-          {mode === 'idle' && (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-
-                {/* Chat Button */}
-                <button
-                  onClick={() => setMode('chat')}
-                  className="flex flex-col items-center justify-center p-6 bg-background rounded-2xl hover:bg-gray-700 transition-colors gap-3"
-                >
-                  <div className="w-14 h-14 bg-blue-500/20 rounded-full flex items-center justify-center">
-                    <Icons.MessageCircle className="h-7 w-7 text-blue-400" />
-                  </div>
-                  <span className="font-semibold">Chat</span>
-                  <span className="text-xs text-text-secondary text-center">Scrivi un messaggio</span>
-                </button>
-
-                {/* Voice Button */}
-                <button
-                  onClick={handleVoiceStart}
-                  className="flex flex-col items-center justify-center p-6 bg-background rounded-2xl hover:bg-gray-700 transition-colors gap-3"
-                >
-                  <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center">
-                    <Icons.Mic className="h-7 w-7 text-green-400" />
-                  </div>
-                  <span className="font-semibold">Voce</span>
-                  <span className="text-xs text-text-secondary text-center">Parla in tempo reale</span>
-                </button>
-
-                {/* Photo Button */}
-                <label className="flex flex-col items-center justify-center p-6 bg-background rounded-2xl hover:bg-gray-700 transition-colors gap-3 cursor-pointer">
-                  <div className="w-14 h-14 bg-purple-500/20 rounded-full flex items-center justify-center">
-                    <Icons.Camera className="h-7 w-7 text-purple-400" />
-                  </div>
-                  <span className="font-semibold">Foto</span>
-                  <span className="text-xs text-text-secondary text-center">Scatta o carica</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhotoCapture}
-                  />
-                </label>
-
-                {/* Document Button */}
-                <button
-                  onClick={handleDocumentUpload}
-                  className="flex flex-col items-center justify-center p-6 bg-background rounded-2xl hover:bg-gray-700 transition-colors gap-3"
-                >
-                  <div className="w-14 h-14 bg-orange-500/20 rounded-full flex items-center justify-center">
-                    <Icons.Upload className="h-7 w-7 text-orange-400" />
-                  </div>
-                  <span className="font-semibold">Documento</span>
-                  <span className="text-xs text-text-secondary text-center">Carica PDF/immagine</span>
-                </button>
-
+      {/* Centered Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className={`bg-surface rounded-2xl shadow-2xl w-full max-w-2xl transition-all duration-300 ${
+            showEventForm ? 'h-[90vh]' : 'h-[70vh]'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="h-full flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                  <Icons.Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg">AI Assistant</h2>
+                  <p className="text-xs text-text-secondary">Come posso aiutarti?</p>
+                </div>
               </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  resetAssistant();
+                }}
+                className="p-2 hover:bg-gray-700 rounded-full transition-colors"
+              >
+                <Icons.Close className="h-5 w-5" />
+              </button>
             </div>
-          )}
 
-          {/* Chat Mode */}
-          {mode === 'chat' && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Messages - con altezza massima quando c'è il form */}
-              <div className={`${detectedIntent === 'create_event' ? 'h-[35%]' : 'flex-1'} overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto`}>
+            {/* Chat Section - compresses when form shows */}
+            <div className={`flex flex-col ${showEventForm ? 'h-[45%]' : 'flex-1'} border-b border-gray-700`}>
+              {/* Input at TOP */}
+              <div className="p-4 border-b border-gray-700">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Scrivi un messaggio..."
+                    className="flex-1 bg-background border border-gray-600 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={isLoading}
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!inputText.trim() || isLoading}
+                    className="p-3 bg-primary rounded-full hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Icons.Send className="h-5 w-5 text-white" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Messages - scrollable, max 5-6 lines visible */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {messages.length === 0 && (
                   <div className="text-center text-text-secondary py-8">
                     <Icons.Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>Inizia a chattare! Posso aiutarti a:</p>
                     <ul className="text-sm mt-2 space-y-1">
                       <li>• Creare eventi nel calendario</li>
-                      <li>• Analizzare documenti</li>
                       <li>• Rispondere a domande sui tuoi dati</li>
+                      <li>• Analizzare documenti</li>
                     </ul>
                   </div>
                 )}
@@ -369,157 +245,113 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Event Form Inline - appare sotto la chat con altezza fissa */}
-              {detectedIntent === 'create_event' && eventData && (
-                <div className="h-[40%] p-4 bg-background border-t border-gray-700 overflow-y-auto flex-shrink-0">
-                  <div className="max-w-2xl w-full mx-auto space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icons.Calendar className="h-4 w-4 text-primary" />
-                      <span className="text-sm font-semibold text-primary">Creazione Evento</span>
-                    </div>
+              {/* Action Buttons - always visible at bottom of chat section */}
+              <div className="p-4 flex justify-center gap-3 border-t border-gray-700">
+                <button
+                  onClick={handleVoiceInput}
+                  className="flex items-center gap-2 px-4 py-2 bg-background hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <Icons.Mic className="h-5 w-5 text-green-400" />
+                  <span className="text-sm">Voce</span>
+                </button>
 
-                    {/* Title */}
+                <label className="flex items-center gap-2 px-4 py-2 bg-background hover:bg-gray-700 rounded-full transition-colors cursor-pointer">
+                  <Icons.Camera className="h-5 w-5 text-purple-400" />
+                  <span className="text-sm">Foto</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
+                </label>
+
+                <button
+                  onClick={handleDocumentUpload}
+                  className="flex items-center gap-2 px-4 py-2 bg-background hover:bg-gray-700 rounded-full transition-colors"
+                >
+                  <Icons.Upload className="h-5 w-5 text-orange-400" />
+                  <span className="text-sm">File</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Event Form - appears below when triggered */}
+            {showEventForm && eventData && (
+              <div className="flex-1 overflow-y-auto p-4 bg-background">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icons.Calendar className="h-5 w-5 text-primary" />
+                    <span className="font-semibold text-primary">Creazione Evento</span>
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-1">Titolo</label>
+                    <input
+                      type="text"
+                      value={eventData.title || ''}
+                      onChange={(e) => setEventData({...eventData, title: e.target.value})}
+                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Inserisci titolo..."
+                    />
+                  </div>
+
+                  {/* Date/Time */}
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-xs text-text-secondary block mb-1">Titolo</label>
+                      <label className="text-xs text-text-secondary block mb-1">Data inizio</label>
                       <input
-                        type="text"
-                        value={eventData.title || ''}
-                        onChange={(e) => setEventData({...eventData, title: e.target.value})}
+                        type="datetime-local"
+                        value={eventData.start_datetime ? eventData.start_datetime.slice(0, 16) : ''}
+                        onChange={(e) => setEventData({...eventData, start_datetime: e.target.value + ':00'})}
                         className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="Inserisci titolo..."
                       />
                     </div>
-
-                    {/* Date/Time */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs text-text-secondary block mb-1">Data inizio</label>
-                        <input
-                          type="datetime-local"
-                          value={eventData.start_datetime ? eventData.start_datetime.slice(0, 16) : ''}
-                          onChange={(e) => setEventData({...eventData, start_datetime: e.target.value + ':00'})}
-                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-text-secondary block mb-1">Data fine</label>
-                        <input
-                          type="datetime-local"
-                          value={eventData.end_datetime ? eventData.end_datetime.slice(0, 16) : ''}
-                          onChange={(e) => setEventData({...eventData, end_datetime: e.target.value + ':00'})}
-                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Amount */}
                     <div>
-                      <label className="text-xs text-text-secondary block mb-1">Importo €</label>
+                      <label className="text-xs text-text-secondary block mb-1">Data fine</label>
                       <input
-                        type="number"
-                        step="0.01"
-                        value={eventData.amount || ''}
-                        onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
+                        type="datetime-local"
+                        value={eventData.end_datetime ? eventData.end_datetime.slice(0, 16) : ''}
+                        onChange={(e) => setEventData({...eventData, end_datetime: e.target.value + ':00'})}
                         className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                        placeholder="0.00"
                       />
-                    </div>
-
-                    {/* Description */}
-                    <div>
-                      <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
-                      <textarea
-                        value={eventData.description || ''}
-                        onChange={(e) => setEventData({...eventData, description: e.target.value})}
-                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                        rows={2}
-                        placeholder="Inserisci descrizione..."
-                      />
-                    </div>
-
-                    {/* Note: Category, color, reminders will be set in full modal after confirmation */}
-                    <div className="text-xs text-text-secondary italic">
-                      Categoria, colore e promemoria li aggiungerai dopo conferma
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Chat Input */}
-              <div className="flex-shrink-0 p-4 border-t border-gray-700 safe-area-inset-bottom">
-                <div className="flex items-center gap-2 max-w-2xl w-full mx-auto">
-                  <button
-                    onClick={() => setMode('idle')}
-                    className="p-3 bg-background rounded-full hover:bg-gray-700 transition-colors"
-                  >
-                    <Icons.ChevronLeft className="h-5 w-5" />
-                  </button>
+                  {/* Amount */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-1">Importo €</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={eventData.amount || ''}
+                      onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
+                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="0.00"
+                    />
+                  </div>
 
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="Scrivi un messaggio..."
-                    className="flex-1 bg-background border border-gray-600 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary"
-                    disabled={isLoading}
-                  />
+                  {/* Description */}
+                  <div>
+                    <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
+                    <textarea
+                      value={eventData.description || ''}
+                      onChange={(e) => setEventData({...eventData, description: e.target.value})}
+                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                      rows={3}
+                      placeholder="Inserisci descrizione..."
+                    />
+                  </div>
 
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!inputText.trim() || isLoading}
-                    className="p-3 bg-primary rounded-full hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Icons.Send className="h-5 w-5 text-white" />
-                  </button>
+                  <div className="text-xs text-text-secondary italic">
+                    Categoria, colore e promemoria li aggiungerai dopo conferma
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Voice Mode */}
-          {mode === 'voice' && (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6">
-              <div className={`w-32 h-32 rounded-full flex items-center justify-center transition-all ${
-                isRecording
-                  ? 'bg-red-500/20 animate-pulse'
-                  : 'bg-green-500/20'
-              }`}>
-                <Icons.Mic className={`h-16 w-16 ${isRecording ? 'text-red-400' : 'text-green-400'}`} />
-              </div>
-
-              <div className="text-center">
-                <p className="text-lg font-semibold mb-2">
-                  {isRecording ? 'Sto ascoltando...' : 'Premi per parlare'}
-                </p>
-                <p className="text-sm text-text-secondary">
-                  {inputText || 'Dì qualcosa...'}
-                </p>
-              </div>
-
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setMode('idle')}
-                  className="px-6 py-3 bg-background rounded-full hover:bg-gray-700 transition-colors"
-                >
-                  Annulla
-                </button>
-
-                <button
-                  onClick={isRecording ? handleVoiceStop : handleVoiceStart}
-                  className={`px-6 py-3 rounded-full transition-colors ${
-                    isRecording
-                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                      : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}
-                >
-                  {isRecording ? 'Ferma' : 'Registra'}
-                </button>
-              </div>
-            </div>
-          )}
-
+            )}
+          </div>
         </div>
       </div>
     </>

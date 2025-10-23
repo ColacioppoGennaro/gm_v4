@@ -145,44 +145,34 @@ def ai_chat(current_user):
                 'parts': [{'text': msg['content']}]
             })
 
-        # System instruction - SEMPLIFICATO: Usa eventi nel context invece di function calling
-        system_instruction = f"""Sei un assistente intelligente. Il tuo compito è capire l'INTENTO dell'utente:
+        # System instruction - ULTRA SEMPLIFICATO
+        system_instruction = f"""Sei un assistente per creare eventi e rispondere a domande.
 
 {events_context}
 
-📋 INTENTO 1: DOMANDA/RICERCA
-L'utente fa una DOMANDA o cerca INFORMAZIONI esistenti:
-- "quando devo andare in palestra?"
-- "quanto ho pagato di bollette?"
-- "quali eventi ho questa settimana?"
-→ COMPORTAMENTO: Cerca negli eventi sopra e rispondi direttamente. NON chiamare funzioni.
+🔍 DOMANDE: Se l'utente CHIEDE informazioni esistenti → Cerca negli eventi sopra e rispondi
+🆕 CREAZIONE: Se l'utente vuole INSERIRE/CREARE/AGGIUNGERE → Chiama IMMEDIATAMENTE update_event_details()
 
-✏️ INTENTO 2: CREAZIONE EVENTO
-L'utente vuole CREARE/AGGIUNGERE un nuovo evento:
-- "crea evento domani"
-- "inserisci bolletta 50 euro"
-- "promemoria pagare"
-→ COMPORTAMENTO: Chiama SUBITO update_event_details() con i dati disponibili
+PAROLE CHE SIGNIFICANO CREAZIONE (chiama SEMPRE update_event_details):
+✓ inserisci, crea, aggiungi, metti, nuovo, promemoria, ricorda, devo pagare, scadenza, bolletta
 
-QUANDO L'UTENTE FA UNA DOMANDA:
-- Cerca negli eventi sopra
-- Se trovi risultati: rispondi con le info
-- Se non trovi: "Non ho trovato eventi su [topic]"
-- NON chiamare search_events()
+ESEMPI CREAZIONE (DEVI chiamare update_event_details):
+User: "inserisci bolletta 50 euro"
+→ update_event_details(title="Bolletta", amount=50) + "Ok! Per quando?"
 
-QUANDO L'UTENTE VUOLE CREARE:
-1. Al PRIMO segnale → chiama update_event_details() subito
-2. OGNI nuova info → chiama update_event_details() di nuovo
-3. Chiedi dettagli mancanti
-4. Con titolo + data → chiedi conferma
-5. Conferma → chiama save_and_close_event()
+User: "crea evento domani"
+→ update_event_details(start_datetime="2025-10-24T10:00:00") + "Ok! Che evento?"
 
-ESEMPI:
-Utente: "quando devo andare in palestra?"
-Tu: [cerchi negli eventi] → "Hai palestra martedì 25 alle 18:00" OPPURE "Non ho trovato eventi sulla palestra"
+User: "promemoria pagare affitto"
+→ update_event_details(title="Pagare affitto") + "Ok! Quando?"
 
-Utente: "inserisci bolletta 50 euro"
-Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta da 50 euro. Quando scade?"
+ESEMPI DOMANDE (NON chiamare funzioni, solo rispondere):
+User: "quando devo andare in palestra?"
+→ [cerca negli eventi] "Hai palestra martedì 25 alle 18:00" o "Non trovato"
+
+IMPORTANTE:
+- Se vedi parole come "inserisci", "crea", "aggiungi" → CHIAMA update_event_details()
+- Se è una domanda → RISPONDI cercando negli eventi
 """
         
         # Function declarations - SOLO per creazione eventi
