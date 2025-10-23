@@ -201,10 +201,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
       {/* Bottom Sheet */}
       <div
-        className={`fixed left-0 right-0 bg-surface rounded-t-3xl shadow-2xl z-50 transition-all duration-300 ${
-          true
-            ? detectedIntent === 'create_event' ? 'top-[20%] bottom-0' : 'top-[40%] bottom-0'
-            : 'top-[10%] bottom-0'
+        className={`fixed left-0 right-0 max-w-2xl mx-auto bg-surface rounded-t-3xl shadow-2xl z-50 transition-all duration-300 ${
+          detectedIntent === 'create_event' ? 'top-[20%] bottom-0' : 'top-[40%] bottom-0'
         }`}
         onTouchStart={handleDragStart}
         onTouchMove={handleDragMove}
@@ -313,9 +311,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
           {/* Chat Mode */}
           {mode === 'chat' && (
-            <>
+            <div className="flex-1 flex flex-col min-h-0">
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto">
                 {messages.length === 0 && (
                   <div className="text-center text-text-secondary py-8">
                     <Icons.Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -360,8 +358,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               </div>
 
               {/* Chat Input */}
-              <div className="p-4 border-t border-gray-700 safe-area-inset-bottom">
-                <div className="flex items-center gap-2">
+              <div className="flex-shrink-0 p-4 border-t border-gray-700 safe-area-inset-bottom">
+                <div className="flex items-center gap-2 max-w-2xl w-full mx-auto">
                   <button
                     onClick={() => setMode('idle')}
                     className="p-3 bg-background rounded-full hover:bg-gray-700 transition-colors"
@@ -389,7 +387,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
 
           {/* Voice Mode */}
