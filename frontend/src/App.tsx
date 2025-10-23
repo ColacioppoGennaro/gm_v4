@@ -11,6 +11,7 @@ import CalendarView from './components/Calendar';
 import Documents from './components/Documents';
 import Settings from './components/Settings';
 import EventModal from './components/EventModal';
+import AIAssistant from './components/AIAssistant';
 
 type View = 'dashboard' | 'calendar' | 'documents' | 'settings';
 
@@ -22,6 +23,7 @@ const App: React.FC = () => {
   const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined);
   const [newEventDate, setNewEventDate] = useState<Date | undefined>(undefined);
   const [isAiMode, setIsAiMode] = useState(false);
+  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
 
   // App Data State
   const [user, setUser] = useState<User | null>(null);
@@ -229,16 +231,14 @@ const App: React.FC = () => {
           {renderView()}
         </main>
 
-        {/* AI Assistant FAB - positioned relative to container */}
-        {currentView !== 'calendar' &&
-          <button
-            onClick={() => handleOpenEventModal(undefined, undefined, true)}
-            className="fixed bottom-20 right-4 md:bottom-24 md:right-8 lg:right-[calc((100vw-80rem)/2+2rem)] bg-primary text-white rounded-full p-4 shadow-lg hover:bg-violet-700 active:scale-95 transition-all z-40 min-w-[56px] min-h-[56px]"
-            aria-label="Open AI Assistant"
-          >
-            <Icons.Sparkles className="h-7 w-7 md:h-8 md:w-8" />
-          </button>
-        }
+        {/* AI Assistant FAB */}
+        <button
+          onClick={() => setIsAIAssistantOpen(true)}
+          className="fixed bottom-20 right-4 md:bottom-24 md:right-8 lg:right-[calc((100vw-80rem)/2+2rem)] bg-primary text-white rounded-full p-4 shadow-lg hover:bg-violet-700 active:scale-95 transition-all z-40 min-w-[56px] min-h-[56px]"
+          aria-label="Open AI Assistant"
+        >
+          <Icons.Sparkles className="h-7 w-7 md:h-8 md:w-8" />
+        </button>
 
         {/* Bottom Navigation */}
         <nav className="flex-shrink-0 bg-surface border-t border-gray-700 flex justify-around items-center safe-area-inset-bottom">
@@ -253,6 +253,24 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
+
+        {/* AI Assistant Bottom Sheet */}
+        <AIAssistant
+          isOpen={isAIAssistantOpen}
+          onClose={() => setIsAIAssistantOpen(false)}
+          onOpenEventForm={(data) => {
+            // AI wants to create an event, open the event modal with pre-filled data
+            setEventToEdit(undefined);
+            setNewEventDate(data.start_datetime ? new Date(data.start_datetime) : new Date());
+            setIsAiMode(true);
+            setIsEventModalOpen(true);
+          }}
+          onOpenDocumentUpload={() => {
+            // Navigate to documents view
+            setCurrentView('documents');
+            setIsAIAssistantOpen(false);
+          }}
+        />
 
         {isEventModalOpen && (
           <EventModal

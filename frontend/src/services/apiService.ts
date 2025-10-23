@@ -233,12 +233,37 @@ export const apiService = {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to disconnect Google Calendar');
     }
-    
+
     const data = await response.json();
     return data.data.user;
+  },
+
+  // AI Assistant methods
+  aiChat: async (messages: Array<{role: string, content: string}>): Promise<{text: string, function_calls?: any[]}> => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/chat`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ messages })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'AI chat failed');
+    return data;
+  },
+
+  aiSearch: async (query: string, sourceTypes?: string[]): Promise<{answer: string, sources: any[]}> => {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/search`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query, source_types: sourceTypes })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'AI search failed');
+    return data;
   }
 };
