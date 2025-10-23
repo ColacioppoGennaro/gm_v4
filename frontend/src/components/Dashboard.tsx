@@ -81,13 +81,13 @@ const Dashboard: React.FC<DashboardProps> = ({ events, onToggleStatus, categorie
   return (
     <div className="h-full flex flex-col">
       {/* Filters */}
-      <div className="flex-shrink-0 p-2 bg-surface/50 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-700">
-        <div className="flex items-center justify-between gap-2">
+      <div className="flex-shrink-0 p-3 md:p-4 lg:px-6 bg-surface/50 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-700">
+        <div className="flex items-center justify-between gap-2 max-w-4xl mx-auto">
             <div className="flex space-x-2 flex-grow">
                 <select
                     value={filterCategory}
                     onChange={e => setFilterCategory(e.target.value)}
-                    className="bg-background border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-1/2"
+                    className="bg-background border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-1/2"
                 >
                     <option value="all">Tutte le categorie</option>
                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
@@ -95,20 +95,21 @@ const Dashboard: React.FC<DashboardProps> = ({ events, onToggleStatus, categorie
                 <select
                     value={filterStatus}
                     onChange={e => setFilterStatus(e.target.value)}
-                    className="bg-background border border-gray-600 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-1/2"
+                    className="bg-background border border-gray-600 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-1/2"
                 >
                     <option value="all">Tutti gli stati</option>
                     <option value="pending">Da fare</option>
                     <option value="completed">Completati</option>
                 </select>
             </div>
-             <button onClick={scrollToToday} className="flex-shrink-0 bg-accent text-white font-semibold text-sm py-1 px-3 rounded-md hover:bg-blue-600 transition-colors">
+             <button onClick={scrollToToday} className="flex-shrink-0 bg-accent text-white font-semibold text-sm py-2 px-4 rounded-md hover:bg-blue-600 transition-colors">
                 Oggi
             </button>
         </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-3 space-y-4">
+      <div className="flex-grow overflow-y-auto p-4 md:p-6 lg:px-8 space-y-4">
+        <div className="max-w-4xl mx-auto space-y-4">
         {filteredEvents.length === 0 ? (
           <div className="text-center py-10">
               <p className="text-text-secondary">Nessun evento corrisponde ai filtri.</p>
@@ -152,6 +153,7 @@ const Dashboard: React.FC<DashboardProps> = ({ events, onToggleStatus, categorie
                 </button>
             </div>
         )}
+        </div>
       </div>
       
       {/* Confirmation Modal */}

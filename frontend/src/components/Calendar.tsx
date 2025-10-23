@@ -74,7 +74,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onEventSelect, onAd
   return (
     <div className="h-full flex flex-col relative">
       {/* Header */}
-      <header className="flex-shrink-0 p-4 flex justify-between items-center border-b border-surface">
+      <header className="flex-shrink-0 p-4 md:p-6 lg:px-8 flex justify-between items-center border-b border-surface">
+        <div className="max-w-6xl mx-auto w-full flex justify-between items-center">
           <button onClick={() => setIsPickerOpen(true)} className="flex items-center gap-1">
             <h1 className="text-xl font-bold">{currentDate.toLocaleString('it-IT', { month: 'long', year: 'numeric' })}</h1>
             <Icons.ChevronDown className="h-5 w-5"/>
@@ -84,16 +85,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onEventSelect, onAd
           <button onClick={() => changeMonth(-1)} className="p-1 hover:bg-surface rounded-full"><Icons.ChevronLeft className="h-6 w-6" /></button>
           <button onClick={() => changeMonth(1)} className="p-1 hover:bg-surface rounded-full"><Icons.ChevronRight className="h-6 w-6" /></button>
         </div>
+        </div>
       </header>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 text-center text-xs font-bold text-text-secondary border-b border-surface">
-        {['DOM', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB'].map(day => (
-          <div key={day} className="py-2">{day}</div>
-        ))}
-      </div>
+      <div className="px-2 md:px-4 lg:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-7 text-center text-xs font-bold text-text-secondary border-b border-surface">
+            {['DOM', 'LUN', 'MAR', 'MER', 'GIO', 'VEN', 'SAB'].map(day => (
+              <div key={day} className="py-2">{day}</div>
+            ))}
+          </div>
 
-      <div className="grid grid-cols-7 flex-grow">
+          <div className="grid grid-cols-7">
         {daysInMonth.map((day, index) => (
           <div key={index} onClick={() => day && setSelectedDate(day)} className="h-16 border-b border-r border-surface p-1 text-sm text-center cursor-pointer hover:bg-surface/50 transition-colors">
             {day && (
@@ -115,12 +119,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onEventSelect, onAd
             )}
           </div>
         ))}
+          </div>
+        </div>
       </div>
 
       {/* Agenda/Timeline View */}
-      <div className="flex-shrink-0 h-[45%] flex flex-col border-t-2 border-primary">
-        <h2 className="p-2 text-center font-bold text-sm bg-surface">{selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
-        <div className="flex-grow overflow-y-auto relative">
+      <div className="flex-shrink-0 h-[45%] flex flex-col border-t-2 border-primary px-2 md:px-4 lg:px-6">
+        <div className="max-w-6xl mx-auto w-full flex flex-col h-full">
+          <h2 className="p-2 text-center font-bold text-sm bg-surface rounded-t-lg">{selectedDate.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
+          <div className="flex-grow overflow-y-auto relative">
           {/* Hour Grid Background */}
           <div className="absolute top-0 left-0 w-full h-full grid grid-rows-24">
             {hours.map(hour => (
@@ -153,6 +160,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ events, onEventSelect, onAd
              {selectedDayEvents.length === 0 && (
                 <p className="text-center text-text-secondary pt-10">Nessun evento per questo giorno.</p>
             )}
+          </div>
           </div>
         </div>
       </div>
