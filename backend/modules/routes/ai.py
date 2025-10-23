@@ -145,35 +145,40 @@ def ai_chat(current_user):
                 'parts': [{'text': msg['content']}]
             })
 
-        # System instruction - ULTRA SEMPLIFICATO
-        system_instruction = f"""Sei un assistente per creare eventi e rispondere a domande.
+        # System instruction - ESTREMAMENTE ESPLICITO
+        system_instruction = f"""Tu sei un assistente AI. Hai a disposizione la funzione update_event_details() per creare eventi.
 
 {events_context}
 
-🔍 DOMANDE: Se l'utente CHIEDE informazioni esistenti → Cerca negli eventi sopra e rispondi
-🆕 CREAZIONE: Se l'utente vuole INSERIRE/CREARE/AGGIUNGERE → Chiama IMMEDIATAMENTE update_event_details()
+REGOLE FERREE:
+1. Se l'utente dice "inserisci", "crea", "aggiungi", "nuovo evento" → DEVI chiamare update_event_details()
+2. Se l'utente fa una domanda → rispondi cercando negli eventi sopra
 
-PAROLE CHE SIGNIFICANO CREAZIONE (chiama SEMPRE update_event_details):
-✓ inserisci, crea, aggiungi, metti, nuovo, promemoria, ricorda, devo pagare, scadenza, bolletta
+ESEMPI CON CHIAMATA FUNZIONE (SEGUI QUESTI):
 
-ESEMPI CREAZIONE (DEVI chiamare update_event_details):
-User: "inserisci bolletta 50 euro"
-→ update_event_details(title="Bolletta", amount=50) + "Ok! Per quando?"
+Esempio 1:
+Utente: "inserisci bolletta 50 euro"
+Azione: CHIAMA update_event_details con {{"title": "Bolletta", "amount": 50}}
+Risposta: "Ok! Bolletta da 50€ inserita. Per quando è la scadenza?"
 
-User: "crea evento domani"
-→ update_event_details(start_datetime="2025-10-24T10:00:00") + "Ok! Che evento?"
+Esempio 2:
+Utente: "crea evento domani alle 10"
+Azione: CHIAMA update_event_details con {{"start_datetime": "2025-10-24T10:00:00"}}
+Risposta: "Ok! Evento per domani alle 10. Che titolo vuoi dargli?"
 
-User: "promemoria pagare affitto"
-→ update_event_details(title="Pagare affitto") + "Ok! Quando?"
+Esempio 3:
+Utente: "aggiungi promemoria pagare affitto"
+Azione: CHIAMA update_event_details con {{"title": "Pagare affitto"}}
+Risposta: "Ok! Promemoria per pagare affitto. Quando?"
 
-ESEMPI DOMANDE (NON chiamare funzioni, solo rispondere):
-User: "quando devo andare in palestra?"
-→ [cerca negli eventi] "Hai palestra martedì 25 alle 18:00" o "Non trovato"
+ESEMPI SENZA CHIAMATA (solo risposta):
 
-IMPORTANTE:
-- Se vedi parole come "inserisci", "crea", "aggiungi" → CHIAMA update_event_details()
-- Se è una domanda → RISPONDI cercando negli eventi
-"""
+Esempio 4:
+Utente: "quando devo andare in palestra?"
+Azione: Cerca negli eventi sopra
+Risposta: "Hai palestra martedì 25 ottobre alle 18:00" oppure "Non ho trovato eventi sulla palestra"
+
+ADESSO SEGUI QUESTE REGOLE ALLA LETTERA!"""
         
         # Function declarations - SOLO per creazione eventi
         tools = [{
@@ -215,6 +220,10 @@ IMPORTANTE:
                 response = requests.post(gemini_url, json=payload, timeout=30)
                 response.raise_for_status()
                 result = response.json()
+
+                # DEBUG: Log full response
+                logger.info(f"Gemini response: {json.dumps(result, indent=2)}")
+
                 if 'candidates' in result and len(result['candidates']) > 0:
                     candidate = result['candidates'][0]
 
@@ -224,6 +233,7 @@ IMPORTANTE:
                         for part in candidate['content']['parts']:
                             if 'functionCall' in part:
                                 function_calls.append(part['functionCall'])
+                                logger.info(f"Function call detected: {part['functionCall']}")
 
                     # Get text response
                     text_response = ''
@@ -232,6 +242,8 @@ IMPORTANTE:
                             if 'text' in part:
                                 text_response = part['text']
                                 break
+
+                    logger.info(f"AI response - text: '{text_response}', function_calls: {len(function_calls)}")
 
                     return jsonify({
                         'success': True,
