@@ -105,13 +105,14 @@ Rispondi SOLO con il JSON, senza markdown o spiegazioni."""
 @require_auth
 def ai_chat(current_user):
     """
-    AI chat endpoint for event creation via text
+    AI chat endpoint for event creation and search via text
     Uses Gemini with function calling
     """
     try:
         data = request.get_json()
         messages = data.get('messages', [])
-        
+        user_events = data.get('events', [])  # Events from frontend
+
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
         
@@ -132,8 +133,7 @@ L'utente fa una DOMANDA o cerca INFORMAZIONI esistenti:
 - "quando devo andare in palestra?"
 - "quanto ho pagato di bollette?"
 - "quali eventi ho questa settimana?"
-- "cosa c'è scritto nel documento?"
-→ COMPORTAMENTO: Rispondi normalmente. NON chiamare funzioni.
+→ COMPORTAMENTO: Chiama SUBITO search_events() per cercare. Poi rispondi con i risultati.
 
 ✏️ INTENTO 2: CREAZIONE EVENTO
 L'utente vuole CREARE/AGGIUNGERE un nuovo evento, promemoria, scadenza:
@@ -141,12 +141,17 @@ L'utente vuole CREARE/AGGIUNGERE un nuovo evento, promemoria, scadenza:
 - "promemoria per pagare la bolletta il 25"
 - "devo ricordarmi appuntamento dentista giovedì"
 - "aggiungi: riunione col team alle 15"
-- "metti un promemoria per..."
+- "inserisci bolletta 50 euro"
 → COMPORTAMENTO: Chiama SUBITO update_event_details() con i dati disponibili
 
 PAROLE CHIAVE per CREAZIONE:
 - Verbi: crea, aggiungi, inserisci, metti, ricordami, promemoria, devo pagare, devo fare
 - Frasi imperative al futuro: "devo...", "ho da...", "mi serve ricordare..."
+
+QUANDO CERCHI EVENTI:
+1. Chiama search_events(keyword="palestra") per cercare
+2. Analizza i risultati e rispondi in modo naturale
+3. Se non trovi nulla, dillo chiaramente: "Non ho trovato eventi sulla palestra nei tuoi calendari"
 
 QUANDO CREI EVENTI:
 1. Al PRIMO segnale di creazione → chiama update_event_details() subito
@@ -155,19 +160,31 @@ QUANDO CREI EVENTI:
 4. Con titolo + data/ora → chiedi conferma
 5. Conferma utente → chiama save_and_close_event()
 
-ESEMPIO CREAZIONE:
-Utente: "promemoria domani ore 10"
-Tu: [CHIAMI update_event_details(start_datetime="2025-10-24T10:00:00")] + "Ok! Promemoria per domani alle 10. Cosa devi ricordare?"
-
-ESEMPIO DOMANDA:
+ESEMPIO RICERCA:
 Utente: "quando devo andare in palestra?"
-Tu: "Lasciami controllare i tuoi eventi..." [NO FUNCTION CALL, solo risposta]"""
+Tu: [CHIAMI search_events(keyword="palestra")] → Ricevi risultati → "Hai palestra martedì 25 alle 18:00"
+Se non trovi: "Non ho trovato eventi sulla palestra"
+
+ESEMPIO CREAZIONE:
+Utente: "inserisci bolletta 50 euro"
+Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta da 50 euro. Per quando è la scadenza?"
+"""
         
         # Function declarations
         tools = [{
             "function_declarations": [{
+                "name": "search_events",
+                "description": "Cerca eventi esistenti dell'utente per keyword (titolo, descrizione, categoria)",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "keyword": {"type": "STRING", "description": "Parola chiave da cercare (es: 'palestra', 'bolletta', 'dentista')"}
+                    },
+                    "required": ["keyword"]
+                }
+            }, {
                 "name": "update_event_details",
-                "description": "Aggiorna i dettagli dell'evento nel form",
+                "description": "Aggiorna i dettagli dell'evento nel form di creazione",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -205,12 +222,69 @@ Tu: "Lasciami controllare i tuoi eventi..." [NO FUNCTION CALL, solo risposta]"""
                 result = response.json()
                 if 'candidates' in result and len(result['candidates']) > 0:
                     candidate = result['candidates'][0]
+
                     # Check for function calls
                     function_calls = []
                     if 'content' in candidate and 'parts' in candidate['content']:
                         for part in candidate['content']['parts']:
                             if 'functionCall' in part:
-                                function_calls.append(part['functionCall'])
+                                fc = part['functionCall']
+                                function_calls.append(fc)
+
+                                # Handle search_events directly on backend
+                                if fc['name'] == 'search_events':
+                                    keyword = fc.get('args', {}).get('keyword', '').lower()
+                                    # Search in user_events
+                                    results = []
+                                    for event in user_events:
+                                        title = str(event.get('title', '')).lower()
+                                        desc = str(event.get('description', '')).lower()
+                                        cat = str(event.get('category', {}).get('name', '')).lower() if isinstance(event.get('category'), dict) else ''
+
+                                        if keyword in title or keyword in desc or keyword in cat:
+                                            results.append({
+                                                'title': event.get('title'),
+                                                'start': event.get('start_datetime'),
+                                                'amount': event.get('amount'),
+                                                'category': event.get('category', {}).get('name') if isinstance(event.get('category'), dict) else None
+                                            })
+
+                                    # Send results back to AI for natural response
+                                    function_response_content = {
+                                        'role': 'user',
+                                        'parts': [{
+                                            'functionResponse': {
+                                                'name': 'search_events',
+                                                'response': {
+                                                    'found': len(results),
+                                                    'events': results[:5]  # Max 5 results
+                                                }
+                                            }
+                                        }]
+                                    }
+
+                                    # Call AI again with function results
+                                    payload['contents'].append(candidate['content'])
+                                    payload['contents'].append(function_response_content)
+
+                                    response2 = requests.post(gemini_url, json=payload, timeout=30)
+                                    response2.raise_for_status()
+                                    result2 = response2.json()
+
+                                    if 'candidates' in result2 and len(result2['candidates']) > 0:
+                                        candidate2 = result2['candidates'][0]
+                                        text_response = ''
+                                        if 'content' in candidate2 and 'parts' in candidate2['content']:
+                                            for part in candidate2['content']['parts']:
+                                                if 'text' in part:
+                                                    text_response = part['text']
+                                                    break
+                                        return jsonify({
+                                            'success': True,
+                                            'text': text_response,
+                                            'function_calls': []  # Already handled
+                                        }), 200
+
                     # Get text response
                     text_response = ''
                     if 'content' in candidate and 'parts' in candidate['content']:

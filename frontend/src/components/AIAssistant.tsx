@@ -13,6 +13,7 @@ interface AIAssistantProps {
   onClose: () => void;
   onOpenEventForm?: (data: any) => void;
   onOpenDocumentUpload?: () => void;
+  events?: any[];  // Events for AI to search
 }
 
 type AssistantMode = 'idle' | 'chat' | 'voice' | 'photo' | 'document';
@@ -22,7 +23,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   isOpen,
   onClose,
   onOpenEventForm,
-  onOpenDocumentUpload
+  onOpenDocumentUpload,
+  events = []
 }) => {
   const [mode, setMode] = useState<AssistantMode>('idle');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -63,8 +65,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     setIsLoading(true);
 
     try {
-      // Send to AI chat endpoint
-      const response = await apiService.aiChat([...messages, userMessage]);
+      // Send to AI chat endpoint with events for search
+      const response = await apiService.aiChat([...messages, userMessage], events);
 
       const aiMessage: Message = {
         role: 'ai',
@@ -411,33 +413,34 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                     </div>
 
                     {/* Amount */}
-                    {eventData.amount !== undefined && (
-                      <div>
-                        <label className="text-xs text-text-secondary block mb-1">Importo €</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={eventData.amount || ''}
-                          onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
-                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                          placeholder="0.00"
-                        />
-                      </div>
-                    )}
+                    <div>
+                      <label className="text-xs text-text-secondary block mb-1">Importo €</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={eventData.amount || ''}
+                        onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
+                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="0.00"
+                      />
+                    </div>
 
                     {/* Description */}
-                    {eventData.description && (
-                      <div>
-                        <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
-                        <textarea
-                          value={eventData.description || ''}
-                          onChange={(e) => setEventData({...eventData, description: e.target.value})}
-                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                          rows={2}
-                          placeholder="Inserisci descrizione..."
-                        />
-                      </div>
-                    )}
+                    <div>
+                      <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
+                      <textarea
+                        value={eventData.description || ''}
+                        onChange={(e) => setEventData({...eventData, description: e.target.value})}
+                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                        rows={2}
+                        placeholder="Inserisci descrizione..."
+                      />
+                    </div>
+
+                    {/* Note: Category, color, reminders will be set in full modal after confirmation */}
+                    <div className="text-xs text-text-secondary italic">
+                      Categoria, colore e promemoria li aggiungerai dopo conferma
+                    </div>
                   </div>
                 </div>
               )}

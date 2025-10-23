@@ -243,11 +243,11 @@ export const apiService = {
   },
 
   // AI Assistant methods
-  aiChat: async (messages: Array<{role: string, content: string}>): Promise<{text: string, function_calls?: any[]}> => {
+  aiChat: async (messages: Array<{role: string, content: string}>, events?: Event[]): Promise<{text: string, function_calls?: any[]}> => {
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/chat`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ messages })
+      body: JSON.stringify({ messages, events: events || [] })
     });
 
     const data = await response.json();

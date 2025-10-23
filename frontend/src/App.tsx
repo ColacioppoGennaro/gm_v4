@@ -259,6 +259,7 @@ const App: React.FC = () => {
         <AIAssistant
           isOpen={isAIAssistantOpen}
           onClose={() => setIsAIAssistantOpen(false)}
+          events={events}
           onOpenEventForm={(data) => {
             // AI wants to create an event, save data and open modal
             console.log('[App] AI event data received:', data);
