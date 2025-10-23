@@ -323,9 +323,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
           {/* Chat Mode */}
           {mode === 'chat' && (
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* Messages - ridotte quando c'è il form */}
-              <div className={`${detectedIntent === 'create_event' ? 'flex-[0.6]' : 'flex-1'} overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto`}>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Messages - con altezza massima quando c'è il form */}
+              <div className={`${detectedIntent === 'create_event' ? 'h-[35%]' : 'flex-1'} overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto`}>
                 {messages.length === 0 && (
                   <div className="text-center text-text-secondary py-8">
                     <Icons.Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -369,9 +369,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Event Form Inline - appare sotto la chat */}
+              {/* Event Form Inline - appare sotto la chat con altezza fissa */}
               {detectedIntent === 'create_event' && eventData && (
-                <div className="flex-shrink-0 p-4 bg-background border-t border-gray-700 max-h-[40vh] overflow-y-auto">
+                <div className="h-[40%] p-4 bg-background border-t border-gray-700 overflow-y-auto flex-shrink-0">
                   <div className="max-w-2xl w-full mx-auto space-y-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Icons.Calendar className="h-4 w-4 text-primary" />

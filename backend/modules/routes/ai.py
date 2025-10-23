@@ -116,6 +116,26 @@ def ai_chat(current_user):
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
         
+        # Build events context for AI
+        events_context = ""
+        if user_events and len(user_events) > 0:
+            events_context = "\n\n📅 EVENTI DELL'UTENTE (per rispondere a domande):\n"
+            for i, event in enumerate(user_events[:20], 1):  # Max 20 events
+                title = event.get('title', 'Senza titolo')
+                start = event.get('start_datetime', '')
+                amount = event.get('amount')
+                category = event.get('category', {})
+                cat_name = category.get('name', '') if isinstance(category, dict) else ''
+
+                events_context += f"{i}. {title}"
+                if start:
+                    events_context += f" - {start}"
+                if cat_name:
+                    events_context += f" ({cat_name})"
+                if amount:
+                    events_context += f" - €{amount}"
+                events_context += "\n"
+
         # Transform messages to Gemini format
         contents = []
         for msg in messages:
@@ -124,65 +144,50 @@ def ai_chat(current_user):
                 'role': role,
                 'parts': [{'text': msg['content']}]
             })
-        
-        # System instruction - CRITICAL: Distinguish between questions and event creation
-        system_instruction = """Sei un assistente intelligente. Il tuo compito è capire l'INTENTO dell'utente:
+
+        # System instruction - SEMPLIFICATO: Usa eventi nel context invece di function calling
+        system_instruction = f"""Sei un assistente intelligente. Il tuo compito è capire l'INTENTO dell'utente:
+
+{events_context}
 
 📋 INTENTO 1: DOMANDA/RICERCA
 L'utente fa una DOMANDA o cerca INFORMAZIONI esistenti:
 - "quando devo andare in palestra?"
 - "quanto ho pagato di bollette?"
 - "quali eventi ho questa settimana?"
-→ COMPORTAMENTO: Chiama SUBITO search_events() per cercare. Poi rispondi con i risultati.
+→ COMPORTAMENTO: Cerca negli eventi sopra e rispondi direttamente. NON chiamare funzioni.
 
 ✏️ INTENTO 2: CREAZIONE EVENTO
-L'utente vuole CREARE/AGGIUNGERE un nuovo evento, promemoria, scadenza:
-- "crea un evento domani"
-- "promemoria per pagare la bolletta il 25"
-- "devo ricordarmi appuntamento dentista giovedì"
-- "aggiungi: riunione col team alle 15"
+L'utente vuole CREARE/AGGIUNGERE un nuovo evento:
+- "crea evento domani"
 - "inserisci bolletta 50 euro"
+- "promemoria pagare"
 → COMPORTAMENTO: Chiama SUBITO update_event_details() con i dati disponibili
 
-PAROLE CHIAVE per CREAZIONE:
-- Verbi: crea, aggiungi, inserisci, metti, ricordami, promemoria, devo pagare, devo fare
-- Frasi imperative al futuro: "devo...", "ho da...", "mi serve ricordare..."
+QUANDO L'UTENTE FA UNA DOMANDA:
+- Cerca negli eventi sopra
+- Se trovi risultati: rispondi con le info
+- Se non trovi: "Non ho trovato eventi su [topic]"
+- NON chiamare search_events()
 
-QUANDO CERCHI EVENTI:
-1. Chiama search_events(keyword="palestra") per cercare
-2. Analizza i risultati e rispondi in modo naturale
-3. Se non trovi nulla, dillo chiaramente: "Non ho trovato eventi sulla palestra nei tuoi calendari"
-
-QUANDO CREI EVENTI:
-1. Al PRIMO segnale di creazione → chiama update_event_details() subito
+QUANDO L'UTENTE VUOLE CREARE:
+1. Al PRIMO segnale → chiama update_event_details() subito
 2. OGNI nuova info → chiama update_event_details() di nuovo
-3. Continua a chiedere dettagli mancanti mentre aggiorni il form
-4. Con titolo + data/ora → chiedi conferma
-5. Conferma utente → chiama save_and_close_event()
+3. Chiedi dettagli mancanti
+4. Con titolo + data → chiedi conferma
+5. Conferma → chiama save_and_close_event()
 
-ESEMPIO RICERCA:
+ESEMPI:
 Utente: "quando devo andare in palestra?"
-Tu: [CHIAMI search_events(keyword="palestra")] → Ricevi risultati → "Hai palestra martedì 25 alle 18:00"
-Se non trovi: "Non ho trovato eventi sulla palestra"
+Tu: [cerchi negli eventi] → "Hai palestra martedì 25 alle 18:00" OPPURE "Non ho trovato eventi sulla palestra"
 
-ESEMPIO CREAZIONE:
 Utente: "inserisci bolletta 50 euro"
-Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta da 50 euro. Per quando è la scadenza?"
+Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta da 50 euro. Quando scade?"
 """
         
-        # Function declarations
+        # Function declarations - SOLO per creazione eventi
         tools = [{
             "function_declarations": [{
-                "name": "search_events",
-                "description": "Cerca eventi esistenti dell'utente per keyword (titolo, descrizione, categoria)",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "keyword": {"type": "STRING", "description": "Parola chiave da cercare (es: 'palestra', 'bolletta', 'dentista')"}
-                    },
-                    "required": ["keyword"]
-                }
-            }, {
                 "name": "update_event_details",
                 "description": "Aggiorna i dettagli dell'evento nel form di creazione",
                 "parameters": {
@@ -223,67 +228,12 @@ Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta d
                 if 'candidates' in result and len(result['candidates']) > 0:
                     candidate = result['candidates'][0]
 
-                    # Check for function calls
+                    # Check for function calls (solo update_event_details e save_and_close_event)
                     function_calls = []
                     if 'content' in candidate and 'parts' in candidate['content']:
                         for part in candidate['content']['parts']:
                             if 'functionCall' in part:
-                                fc = part['functionCall']
-                                function_calls.append(fc)
-
-                                # Handle search_events directly on backend
-                                if fc['name'] == 'search_events':
-                                    keyword = fc.get('args', {}).get('keyword', '').lower()
-                                    # Search in user_events
-                                    results = []
-                                    for event in user_events:
-                                        title = str(event.get('title', '')).lower()
-                                        desc = str(event.get('description', '')).lower()
-                                        cat = str(event.get('category', {}).get('name', '')).lower() if isinstance(event.get('category'), dict) else ''
-
-                                        if keyword in title or keyword in desc or keyword in cat:
-                                            results.append({
-                                                'title': event.get('title'),
-                                                'start': event.get('start_datetime'),
-                                                'amount': event.get('amount'),
-                                                'category': event.get('category', {}).get('name') if isinstance(event.get('category'), dict) else None
-                                            })
-
-                                    # Send results back to AI for natural response
-                                    function_response_content = {
-                                        'role': 'user',
-                                        'parts': [{
-                                            'functionResponse': {
-                                                'name': 'search_events',
-                                                'response': {
-                                                    'found': len(results),
-                                                    'events': results[:5]  # Max 5 results
-                                                }
-                                            }
-                                        }]
-                                    }
-
-                                    # Call AI again with function results
-                                    payload['contents'].append(candidate['content'])
-                                    payload['contents'].append(function_response_content)
-
-                                    response2 = requests.post(gemini_url, json=payload, timeout=30)
-                                    response2.raise_for_status()
-                                    result2 = response2.json()
-
-                                    if 'candidates' in result2 and len(result2['candidates']) > 0:
-                                        candidate2 = result2['candidates'][0]
-                                        text_response = ''
-                                        if 'content' in candidate2 and 'parts' in candidate2['content']:
-                                            for part in candidate2['content']['parts']:
-                                                if 'text' in part:
-                                                    text_response = part['text']
-                                                    break
-                                        return jsonify({
-                                            'success': True,
-                                            'text': text_response,
-                                            'function_calls': []  # Already handled
-                                        }), 200
+                                function_calls.append(part['functionCall'])
 
                     # Get text response
                     text_response = ''
@@ -292,6 +242,7 @@ Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta d
                             if 'text' in part:
                                 text_response = part['text']
                                 break
+
                     return jsonify({
                         'success': True,
                         'text': text_response,
@@ -300,15 +251,15 @@ Tu: [CHIAMI update_event_details(title="Bolletta", amount=50)] + "Ok! Bolletta d
                 else:
                     return jsonify({'error': 'No response from AI'}), 500
             except requests.exceptions.RequestException as e:
-                print(f"Gemini API error (attempt {attempt+1}): {e}")
+                logger.error(f"Gemini API error (attempt {attempt+1}): {e}")
                 if attempt < max_retries - 1:
                     time.sleep(2)
                 else:
                     raise
-            
+
     except Exception as e:
-        print(f"AI chat error: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"AI chat error: {e}", exc_info=True)
+        return jsonify({'error': 'Si è verificato un errore. Riprova.', 'details': str(e)}), 500
 
 
 # TEMP_DISABLED: @ai_bp.route('/search', methods=['POST'])
