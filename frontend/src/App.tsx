@@ -24,6 +24,7 @@ const App: React.FC = () => {
   const [newEventDate, setNewEventDate] = useState<Date | undefined>(undefined);
   const [isAiMode, setIsAiMode] = useState(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
+  const [aiEventData, setAiEventData] = useState<any>(null);
 
   // App Data State
   const [user, setUser] = useState<User | null>(null);
@@ -259,11 +260,13 @@ const App: React.FC = () => {
           isOpen={isAIAssistantOpen}
           onClose={() => setIsAIAssistantOpen(false)}
           onOpenEventForm={(data) => {
-            // AI wants to create an event, open the event modal with pre-filled data
+            // AI wants to create an event, save data and open modal
+            console.log('[App] AI event data received:', data);
+            setAiEventData(data);  // Save AI data
             setEventToEdit(undefined);
             setNewEventDate(data.start_datetime ? new Date(data.start_datetime) : new Date());
             setIsAiMode(true);
-            setIsEventModalOpen(true);
+            if (!isEventModalOpen) setIsEventModalOpen(true);
           }}
           onOpenDocumentUpload={() => {
             // Navigate to documents view
@@ -275,13 +278,17 @@ const App: React.FC = () => {
         {isEventModalOpen && (
           <EventModal
             isOpen={isEventModalOpen}
-            onClose={handleCloseEventModal}
+            onClose={() => {
+              handleCloseEventModal();
+              setAiEventData(null);  // Clear AI data on close
+            }}
             event={eventToEdit}
             categories={categories}
             onSave={eventToEdit ? handleUpdateEvent : handleAddEvent}
             onDelete={handleDeleteEvent}
             defaultDate={newEventDate}
             aiMode={isAiMode}
+            aiData={aiEventData}  // Pass AI data to modal
           />
         )}
       </div>

@@ -68,6 +68,7 @@ interface EventModalProps {
   onDelete: (eventId: string) => void;
   defaultDate?: Date;
   aiMode?: boolean;
+  aiData?: any;  // Data from AI assistant
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#EF4444', '#F97316', '#8B5CF6', '#F59E0B', '#EC4899'];
@@ -83,7 +84,7 @@ interface ConversationMessage {
     content: string;
 }
 
-const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categories, onSave, onDelete, defaultDate, aiMode }) => {
+const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categories, onSave, onDelete, defaultDate, aiMode, aiData }) => {
   
   const getInitialFormData = useCallback(() => {
     const baseDate = defaultDate || new Date();
@@ -91,7 +92,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     if (baseDate.getHours() === 0 && baseDate.getMinutes() === 0) {
       baseDate.setHours(9, 0, 0, 0);
     }
-    
+
     // Base structure for a new event
     const defaultNewEvent = {
       title: '',
@@ -115,16 +116,41 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         end_datetime: event.end_datetime ? toLocalISOString(new Date(event.end_datetime)) : '',
       };
     }
-    
+
+    // Merge with AI data if available
+    if (aiData) {
+      console.log('[EventModal] Merging AI data:', aiData);
+      return {
+        ...defaultNewEvent,
+        ...aiData,
+        // Ensure dates are in correct format
+        start_datetime: aiData.start_datetime ? toLocalISOString(new Date(aiData.start_datetime)) : defaultNewEvent.start_datetime,
+        end_datetime: aiData.end_datetime ? toLocalISOString(new Date(aiData.end_datetime)) : defaultNewEvent.end_datetime,
+      };
+    }
+
     return defaultNewEvent;
-  }, [event, defaultDate, categories]);
+  }, [event, defaultDate, categories, aiData]);
 
   const [formData, setFormData] = useState<Partial<Event>>(getInitialFormData());
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  
+
+  // Update form data in real-time when AI sends new data
+  useEffect(() => {
+    if (aiData && aiMode) {
+      console.log('[EventModal] Real-time AI data update:', aiData);
+      setFormData(prev => ({
+        ...prev,
+        ...aiData,
+        start_datetime: aiData.start_datetime ? toLocalISOString(new Date(aiData.start_datetime)) : prev.start_datetime,
+        end_datetime: aiData.end_datetime ? toLocalISOString(new Date(aiData.end_datetime)) : prev.end_datetime,
+      }));
+    }
+  }, [aiData, aiMode]);
+
   // --- AI State ---
   const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
   const inputAudioContextRef = useRef<AudioContext>();
