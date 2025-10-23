@@ -5,7 +5,7 @@ Handles AI-powered features using server-side Gemini API key
 
 from flask import Blueprint, request, jsonify
 from modules.utils.auth import require_auth
-from modules.services.embedding_service import EmbeddingService
+# from modules.services.embedding_service import EmbeddingService  # TEMPORARY: Disabled until dependencies installed
 import os
 import base64
 import json
@@ -204,174 +204,174 @@ Usa le funzioni fornite per aggiornare i dati dell'evento."""
         return jsonify({'error': str(e)}), 500
 
 
-@ai_bp.route('/search', methods=['POST'])
-@require_auth
-def rag_search(current_user):
-    """
-    RAG Search endpoint - Search across all vectorized documents and events
-
-    POST /api/ai/search
-    {
-        "query": "quanto avevo di colesterolo?",
-        "source_types": ["document", "event"],  // optional
-        "top_k": 5  // optional
-    }
-    """
-    try:
-        data = request.get_json()
-        query = data.get('query', '').strip()
-
-        if not query:
-            return jsonify({'error': 'Query parameter required'}), 400
-
-        source_types = data.get('source_types')  # None = search all
-        top_k = data.get('top_k', 5)
-
-        # Search embeddings
-        results = EmbeddingService.search(
-            query=query,
-            source_types=source_types,
-            top_k=top_k
-        )
-
-        # Build context for LLM
-        context_parts = []
-        for i, match in enumerate(results):
-            context_parts.append(f"[{i}] {match['text']}")
-
-        context = "\n\n".join(context_parts)
-
-        # Generate answer using Gemini Flash
-        import requests
-
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
-
-        system_prompt = """Sei un assistente che risponde SOLO usando i passaggi forniti tra parentesi quadre [i].
-Cita sempre i riferimenti numerici quando possibile.
-Se la risposta non è nei passaggi, dì chiaramente che l'informazione non è disponibile.
-Rispondi in modo naturale e conversazionale."""
-
-        prompt = f"{system_prompt}\n\nPassaggi:\n{context}\n\nDomanda: {query}\n\nRisposta:"
-
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }],
-            "generationConfig": {
-                "maxOutputTokens": 800,
-                "temperature": 0.3
-            }
-        }
-
-        response = requests.post(gemini_url, json=payload, timeout=30)
-        response.raise_for_status()
-        result = response.json()
-
-        answer = ""
-        if 'candidates' in result and len(result['candidates']) > 0:
-            parts = result['candidates'][0]['content']['parts']
-            if parts:
-                answer = parts[0]['text']
-
-        logger.info(f"RAG search for user {current_user['id']}: '{query}' - {len(results)} matches")
-
-        return jsonify({
-            'success': True,
-            'query': query,
-            'answer': answer,
-            'sources': results,
-            'total_matches': len(results)
-        }), 200
-
-    except Exception as e:
-        logger.error(f"RAG search error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@ai_bp.route('/vectorize-document', methods=['POST'])
-@require_auth
-def vectorize_document_endpoint(current_user):
-    """
-    Vectorize a document for RAG search
-
-    POST /api/ai/vectorize-document
-    {
-        "document_id": "uuid",
-        "text": "full document text",
-        "metadata": {}  // optional
-    }
-    """
-    try:
-        data = request.get_json()
-
-        document_id = data.get('document_id')
-        text = data.get('text', '').strip()
-        metadata = data.get('metadata', {})
-
-        if not document_id or not text:
-            return jsonify({'error': 'document_id and text required'}), 400
-
-        # Vectorize document
-        chunks_count = EmbeddingService.vectorize_document(
-            document_id=document_id,
-            full_text=text,
-            metadata=metadata
-        )
-
-        logger.info(f"Vectorized document {document_id} into {chunks_count} chunks")
-
-        return jsonify({
-            'success': True,
-            'document_id': document_id,
-            'chunks_created': chunks_count
-        }), 200
-
-    except Exception as e:
-        logger.error(f"Vectorize document error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@ai_bp.route('/vectorize-event', methods=['POST'])
-@require_auth
-def vectorize_event_endpoint(current_user):
-    """
-    Vectorize an event for RAG search
-
-    POST /api/ai/vectorize-event
-    {
-        "event_id": "uuid",
-        "event_data": {
-            "title": "...",
-            "description": "...",
-            "start_datetime": "...",
-            "location": "...",
-            "category_name": "..."
-        }
-    }
-    """
-    try:
-        data = request.get_json()
-
-        event_id = data.get('event_id')
-        event_data = data.get('event_data', {})
-
-        if not event_id or not event_data:
-            return jsonify({'error': 'event_id and event_data required'}), 400
-
-        # Vectorize event
-        embedding_id = EmbeddingService.vectorize_event(
-            event_id=event_id,
-            event_data=event_data
-        )
-
-        logger.info(f"Vectorized event {event_id}")
-
-        return jsonify({
-            'success': True,
-            'event_id': event_id,
-            'embedding_id': embedding_id
-        }), 200
-
-    except Exception as e:
-        logger.error(f"Vectorize event error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+# TEMP_DISABLED: @ai_bp.route('/search', methods=['POST'])
+# TEMP_DISABLED: @require_auth
+# TEMP_DISABLED: def rag_search(current_user):
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     RAG Search endpoint - Search across all vectorized documents and events
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     POST /api/ai/search
+# TEMP_DISABLED:     {
+# TEMP_DISABLED:         "query": "quanto avevo di colesterolo?",
+# TEMP_DISABLED:         "source_types": ["document", "event"],  // optional
+# TEMP_DISABLED:         "top_k": 5  // optional
+# TEMP_DISABLED:     }
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     try:
+# TEMP_DISABLED:         data = request.get_json()
+# TEMP_DISABLED:         query = data.get('query', '').strip()
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         if not query:
+# TEMP_DISABLED:             return jsonify({'error': 'Query parameter required'}), 400
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         source_types = data.get('source_types')  # None = search all
+# TEMP_DISABLED:         top_k = data.get('top_k', 5)
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         # Search embeddings
+# TEMP_DISABLED:         results = EmbeddingService.search(
+# TEMP_DISABLED:             query=query,
+# TEMP_DISABLED:             source_types=source_types,
+# TEMP_DISABLED:             top_k=top_k
+# TEMP_DISABLED:         )
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         # Build context for LLM
+# TEMP_DISABLED:         context_parts = []
+# TEMP_DISABLED:         for i, match in enumerate(results):
+# TEMP_DISABLED:             context_parts.append(f"[{i}] {match['text']}")
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         context = "\n\n".join(context_parts)
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         # Generate answer using Gemini Flash
+# TEMP_DISABLED:         import requests
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         system_prompt = """Sei un assistente che risponde SOLO usando i passaggi forniti tra parentesi quadre [i].
+# TEMP_DISABLED: Cita sempre i riferimenti numerici quando possibile.
+# TEMP_DISABLED: Se la risposta non è nei passaggi, dì chiaramente che l'informazione non è disponibile.
+# TEMP_DISABLED: Rispondi in modo naturale e conversazionale."""
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         prompt = f"{system_prompt}\n\nPassaggi:\n{context}\n\nDomanda: {query}\n\nRisposta:"
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         payload = {
+# TEMP_DISABLED:             "contents": [{
+# TEMP_DISABLED:                 "parts": [{"text": prompt}]
+# TEMP_DISABLED:             }],
+# TEMP_DISABLED:             "generationConfig": {
+# TEMP_DISABLED:                 "maxOutputTokens": 800,
+# TEMP_DISABLED:                 "temperature": 0.3
+# TEMP_DISABLED:             }
+# TEMP_DISABLED:         }
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         response = requests.post(gemini_url, json=payload, timeout=30)
+# TEMP_DISABLED:         response.raise_for_status()
+# TEMP_DISABLED:         result = response.json()
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         answer = ""
+# TEMP_DISABLED:         if 'candidates' in result and len(result['candidates']) > 0:
+# TEMP_DISABLED:             parts = result['candidates'][0]['content']['parts']
+# TEMP_DISABLED:             if parts:
+# TEMP_DISABLED:                 answer = parts[0]['text']
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         logger.info(f"RAG search for user {current_user['id']}: '{query}' - {len(results)} matches")
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         return jsonify({
+# TEMP_DISABLED:             'success': True,
+# TEMP_DISABLED:             'query': query,
+# TEMP_DISABLED:             'answer': answer,
+# TEMP_DISABLED:             'sources': results,
+# TEMP_DISABLED:             'total_matches': len(results)
+# TEMP_DISABLED:         }), 200
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     except Exception as e:
+# TEMP_DISABLED:         logger.error(f"RAG search error: {str(e)}")
+# TEMP_DISABLED:         return jsonify({'error': str(e)}), 500
+# TEMP_DISABLED: 
+# TEMP_DISABLED: 
+# TEMP_DISABLED: @ai_bp.route('/vectorize-document', methods=['POST'])
+# TEMP_DISABLED: @require_auth
+# TEMP_DISABLED: def vectorize_document_endpoint(current_user):
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     Vectorize a document for RAG search
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     POST /api/ai/vectorize-document
+# TEMP_DISABLED:     {
+# TEMP_DISABLED:         "document_id": "uuid",
+# TEMP_DISABLED:         "text": "full document text",
+# TEMP_DISABLED:         "metadata": {}  // optional
+# TEMP_DISABLED:     }
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     try:
+# TEMP_DISABLED:         data = request.get_json()
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         document_id = data.get('document_id')
+# TEMP_DISABLED:         text = data.get('text', '').strip()
+# TEMP_DISABLED:         metadata = data.get('metadata', {})
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         if not document_id or not text:
+# TEMP_DISABLED:             return jsonify({'error': 'document_id and text required'}), 400
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         # Vectorize document
+# TEMP_DISABLED:         chunks_count = EmbeddingService.vectorize_document(
+# TEMP_DISABLED:             document_id=document_id,
+# TEMP_DISABLED:             full_text=text,
+# TEMP_DISABLED:             metadata=metadata
+# TEMP_DISABLED:         )
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         logger.info(f"Vectorized document {document_id} into {chunks_count} chunks")
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         return jsonify({
+# TEMP_DISABLED:             'success': True,
+# TEMP_DISABLED:             'document_id': document_id,
+# TEMP_DISABLED:             'chunks_created': chunks_count
+# TEMP_DISABLED:         }), 200
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     except Exception as e:
+# TEMP_DISABLED:         logger.error(f"Vectorize document error: {str(e)}")
+# TEMP_DISABLED:         return jsonify({'error': str(e)}), 500
+# TEMP_DISABLED: 
+# TEMP_DISABLED: 
+# TEMP_DISABLED: @ai_bp.route('/vectorize-event', methods=['POST'])
+# TEMP_DISABLED: @require_auth
+# TEMP_DISABLED: def vectorize_event_endpoint(current_user):
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     Vectorize an event for RAG search
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     POST /api/ai/vectorize-event
+# TEMP_DISABLED:     {
+# TEMP_DISABLED:         "event_id": "uuid",
+# TEMP_DISABLED:         "event_data": {
+# TEMP_DISABLED:             "title": "...",
+# TEMP_DISABLED:             "description": "...",
+# TEMP_DISABLED:             "start_datetime": "...",
+# TEMP_DISABLED:             "location": "...",
+# TEMP_DISABLED:             "category_name": "..."
+# TEMP_DISABLED:         }
+# TEMP_DISABLED:     }
+# TEMP_DISABLED:     """
+# TEMP_DISABLED:     try:
+# TEMP_DISABLED:         data = request.get_json()
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         event_id = data.get('event_id')
+# TEMP_DISABLED:         event_data = data.get('event_data', {})
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         if not event_id or not event_data:
+# TEMP_DISABLED:             return jsonify({'error': 'event_id and event_data required'}), 400
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         # Vectorize event
+# TEMP_DISABLED:         embedding_id = EmbeddingService.vectorize_event(
+# TEMP_DISABLED:             event_id=event_id,
+# TEMP_DISABLED:             event_data=event_data
+# TEMP_DISABLED:         )
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         logger.info(f"Vectorized event {event_id}")
+# TEMP_DISABLED: 
+# TEMP_DISABLED:         return jsonify({
+# TEMP_DISABLED:             'success': True,
+# TEMP_DISABLED:             'event_id': event_id,
+# TEMP_DISABLED:             'embedding_id': embedding_id
+# TEMP_DISABLED:         }), 200
+# TEMP_DISABLED: 
+# TEMP_DISABLED:     except Exception as e:
+# TEMP_DISABLED:         logger.error(f"Vectorize event error: {str(e)}")
+# TEMP_DISABLED:         return jsonify({'error': str(e)}), 500
