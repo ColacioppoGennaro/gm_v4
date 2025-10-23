@@ -26,8 +26,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [eventData, setEventData] = useState<any>(null);
-  const [showEventForm, setShowEventForm] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,14 +71,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
         const functionCall = response.function_calls[0];
 
         if (functionCall.name === 'update_event_details') {
-          // Update event data and show form
-          setEventData((prev: any) => ({
-            ...prev,
-            ...functionCall.args
-          }));
-          setShowEventForm(true);
+          // Open EventModal directly with AI data
+          if (onOpenEventForm) {
+            onOpenEventForm(functionCall.args || {});
+          }
         }
-        // Note: save_and_close_event removed - user clicks button manually
       }
 
     } catch (error: any) {
@@ -118,8 +113,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const resetAssistant = () => {
     setMessages([]);
     setInputText('');
-    setEventData(null);
-    setShowEventForm(false);
     setIsLoading(false);
   };
 
@@ -139,9 +132,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       {/* Centered Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className={`bg-surface rounded-2xl shadow-2xl w-full max-w-2xl transition-all duration-300 ${
-            showEventForm ? 'h-[90vh]' : 'h-[70vh]'
-          }`}
+          className="bg-surface rounded-2xl shadow-2xl w-full max-w-2xl h-[70vh]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
@@ -167,8 +158,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
               </button>
             </div>
 
-            {/* Chat Section - compresses when form shows */}
-            <div className={`flex flex-col ${showEventForm ? 'h-[45%]' : 'flex-1'} border-b border-gray-700`}>
+            {/* Chat Section */}
+            <div className="flex flex-col flex-1">
               {/* Input at TOP */}
               <div className="p-4 border-b border-gray-700">
                 <div className="flex items-center gap-2">
@@ -268,95 +259,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                 </button>
               </div>
             </div>
-
-            {/* Event Form - appears below when triggered */}
-            {showEventForm && eventData && (
-              <div className="flex-1 overflow-y-auto p-4 bg-background">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Icons.Calendar className="h-5 w-5 text-primary" />
-                    <span className="font-semibold text-primary">Creazione Evento</span>
-                  </div>
-
-                  {/* Title */}
-                  <div>
-                    <label className="text-xs text-text-secondary block mb-1">Titolo</label>
-                    <input
-                      type="text"
-                      value={eventData.title || ''}
-                      onChange={(e) => setEventData({...eventData, title: e.target.value})}
-                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="Inserisci titolo..."
-                    />
-                  </div>
-
-                  {/* Date/Time */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-text-secondary block mb-1">Data inizio</label>
-                      <input
-                        type="datetime-local"
-                        value={eventData.start_datetime ? eventData.start_datetime.slice(0, 16) : ''}
-                        onChange={(e) => setEventData({...eventData, start_datetime: e.target.value + ':00'})}
-                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-text-secondary block mb-1">Data fine</label>
-                      <input
-                        type="datetime-local"
-                        value={eventData.end_datetime ? eventData.end_datetime.slice(0, 16) : ''}
-                        onChange={(e) => setEventData({...eventData, end_datetime: e.target.value + ':00'})}
-                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Amount */}
-                  <div>
-                    <label className="text-xs text-text-secondary block mb-1">Importo €</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={eventData.amount || ''}
-                      onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
-                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
-                    <textarea
-                      value={eventData.description || ''}
-                      onChange={(e) => setEventData({...eventData, description: e.target.value})}
-                      className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                      rows={3}
-                      placeholder="Inserisci descrizione..."
-                    />
-                  </div>
-
-                  <div className="text-xs text-text-secondary italic mb-3">
-                    Categoria, colore e promemoria li aggiungerai dopo conferma
-                  </div>
-
-                  {/* Save Button */}
-                  <button
-                    onClick={() => {
-                      if (onOpenEventForm && eventData) {
-                        onOpenEventForm(eventData);
-                        onClose();
-                        resetAssistant();
-                      }
-                    }}
-                    className="w-full bg-primary hover:bg-violet-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-                  >
-                    Completa e Salva Evento
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

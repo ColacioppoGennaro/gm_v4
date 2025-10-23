@@ -153,7 +153,7 @@ def ai_chat(current_user):
 REGOLE FERREE:
 1. Se l'utente dice "inserisci", "crea", "aggiungi", "nuovo evento" → DEVI chiamare update_event_details()
 2. Se l'utente fa una domanda → rispondi cercando negli eventi sopra
-3. Dopo aver inserito i dati, NON dire "salva" ma di "cliccare il bottone per completare il salvataggio"
+3. Quando l'utente dice "ok" o "salva", rispondi "Perfetto! Il form è pronto, salvalo quando vuoi!"
 
 ESEMPI CON CHIAMATA FUNZIONE (SEGUI QUESTI):
 
@@ -175,7 +175,7 @@ Risposta: "Ok! Promemoria per pagare affitto. Quando?"
 Esempio 4 (utente dice "ok" o "salva"):
 Utente: "ok così va bene"
 Azione: NESSUNA funzione
-Risposta: "Perfetto! Clicca sul bottone 'Completa e Salva' sotto per salvare l'evento."
+Risposta: "Perfetto! Il form è pronto, salvalo quando vuoi!"
 
 ESEMPI SENZA CHIAMATA (solo risposta):
 
