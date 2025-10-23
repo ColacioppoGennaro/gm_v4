@@ -224,7 +224,7 @@ const App: React.FC = () => {
   return (
     <div className="h-screen w-screen bg-gradient-to-br from-gray-900 via-background to-gray-900 text-text-primary flex flex-col font-sans">
       {/* Container with max-width for desktop comfort */}
-      <div className="h-full w-full max-w-7xl mx-auto flex flex-col bg-background shadow-2xl">
+      <div className="h-full w-full max-w-7xl mx-auto flex flex-col bg-background md:shadow-2xl">
         <main className="flex-grow overflow-y-auto">
           {renderView()}
         </main>
@@ -233,20 +233,20 @@ const App: React.FC = () => {
         {currentView !== 'calendar' &&
           <button
             onClick={() => handleOpenEventModal(undefined, undefined, true)}
-            className="fixed bottom-24 right-4 md:right-8 lg:right-[calc((100vw-80rem)/2+2rem)] bg-primary text-white rounded-full p-4 shadow-lg hover:bg-violet-700 transition-colors z-40"
+            className="fixed bottom-20 right-4 md:bottom-24 md:right-8 lg:right-[calc((100vw-80rem)/2+2rem)] bg-primary text-white rounded-full p-4 shadow-lg hover:bg-violet-700 active:scale-95 transition-all z-40 min-w-[56px] min-h-[56px]"
             aria-label="Open AI Assistant"
           >
-            <Icons.Sparkles className="h-8 w-8" />
+            <Icons.Sparkles className="h-7 w-7 md:h-8 md:w-8" />
           </button>
         }
 
         {/* Bottom Navigation */}
-        <nav className="flex-shrink-0 bg-surface border-t border-gray-700 flex justify-around items-center">
+        <nav className="flex-shrink-0 bg-surface border-t border-gray-700 flex justify-around items-center safe-area-inset-bottom">
           {navItems.map(item => (
             <button
               key={item.view}
               onClick={() => setCurrentView(item.view)}
-              className={`flex flex-col items-center justify-center p-3 w-full transition-colors ${currentView === item.view ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
+              className={`flex flex-col items-center justify-center py-3 px-2 w-full transition-colors min-h-[56px] ${currentView === item.view ? 'text-primary' : 'text-text-secondary hover:text-white'}`}
             >
               <item.icon className="h-6 w-6 mb-1" />
               <span className="text-xs font-medium">{item.label}</span>
