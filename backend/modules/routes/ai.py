@@ -153,13 +153,14 @@ def ai_chat(current_user):
 REGOLE FERREE:
 1. Se l'utente dice "inserisci", "crea", "aggiungi", "nuovo evento" → DEVI chiamare update_event_details()
 2. Se l'utente fa una domanda → rispondi cercando negli eventi sopra
+3. Dopo aver inserito i dati, NON dire "salva" ma di "cliccare il bottone per completare il salvataggio"
 
 ESEMPI CON CHIAMATA FUNZIONE (SEGUI QUESTI):
 
 Esempio 1:
 Utente: "inserisci bolletta 50 euro"
 Azione: CHIAMA update_event_details con {{"title": "Bolletta", "amount": 50}}
-Risposta: "Ok! Bolletta da 50€ inserita. Per quando è la scadenza?"
+Risposta: "Ok! Bolletta da 50€. Per quando è la scadenza?"
 
 Esempio 2:
 Utente: "crea evento domani alle 10"
@@ -171,16 +172,21 @@ Utente: "aggiungi promemoria pagare affitto"
 Azione: CHIAMA update_event_details con {{"title": "Pagare affitto"}}
 Risposta: "Ok! Promemoria per pagare affitto. Quando?"
 
+Esempio 4 (utente dice "ok" o "salva"):
+Utente: "ok così va bene"
+Azione: NESSUNA funzione
+Risposta: "Perfetto! Clicca sul bottone 'Completa e Salva' sotto per salvare l'evento."
+
 ESEMPI SENZA CHIAMATA (solo risposta):
 
-Esempio 4:
+Esempio 5:
 Utente: "quando devo andare in palestra?"
 Azione: Cerca negli eventi sopra
 Risposta: "Hai palestra martedì 25 ottobre alle 18:00" oppure "Non ho trovato eventi sulla palestra"
 
 ADESSO SEGUI QUESTE REGOLE ALLA LETTERA!"""
         
-        # Function declarations - SOLO per creazione eventi
+        # Function declarations - SOLO update_event_details (save è manuale con bottone)
         tools = [{
             "function_declarations": [{
                 "name": "update_event_details",
@@ -196,10 +202,6 @@ ADESSO SEGUI QUESTE REGOLE ALLA LETTERA!"""
                         "description": {"type": "STRING", "description": "Descrizione"}
                     }
                 }
-            }, {
-                "name": "save_and_close_event",
-                "description": "Salva l'evento dopo conferma dell'utente",
-                "parameters": {"type": "OBJECT", "properties": {}}
             }]
         }]
         

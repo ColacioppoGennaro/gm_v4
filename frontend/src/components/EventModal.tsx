@@ -138,18 +138,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Update form data in real-time when AI sends new data
-  useEffect(() => {
-    if (aiData && aiMode) {
-      console.log('[EventModal] Real-time AI data update:', aiData);
-      setFormData(prev => ({
-        ...prev,
-        ...aiData,
-        start_datetime: aiData.start_datetime ? toLocalISOString(new Date(aiData.start_datetime)) : prev.start_datetime,
-        end_datetime: aiData.end_datetime ? toLocalISOString(new Date(aiData.end_datetime)) : prev.end_datetime,
-      }));
-    }
-  }, [aiData, aiMode]);
+  // NOTE: Real-time AI data update removed - data is merged in getInitialFormData on modal open
+  // This prevents infinite loop when EventModal opens with aiData
 
   // --- AI State ---
   const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);

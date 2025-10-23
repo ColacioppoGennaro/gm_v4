@@ -79,16 +79,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
             ...functionCall.args
           }));
           setShowEventForm(true);
-        } else if (functionCall.name === 'save_and_close_event') {
-          // Save event
-          if (eventData && onOpenEventForm) {
-            onOpenEventForm(eventData);
-          }
-          setTimeout(() => {
-            onClose();
-            resetAssistant();
-          }, 1000);
         }
+        // Note: save_and_close_event removed - user clicks button manually
       }
 
     } catch (error: any) {
@@ -345,9 +337,23 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                     />
                   </div>
 
-                  <div className="text-xs text-text-secondary italic">
+                  <div className="text-xs text-text-secondary italic mb-3">
                     Categoria, colore e promemoria li aggiungerai dopo conferma
                   </div>
+
+                  {/* Save Button */}
+                  <button
+                    onClick={() => {
+                      if (onOpenEventForm && eventData) {
+                        onOpenEventForm(eventData);
+                        onClose();
+                        resetAssistant();
+                      }
+                    }}
+                    className="w-full bg-primary hover:bg-violet-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                  >
+                    Completa e Salva Evento
+                  </button>
                 </div>
               </div>
             )}
