@@ -30,6 +30,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [detectedIntent, setDetectedIntent] = useState<IntentType | null>(null);
+  const [eventData, setEventData] = useState<any>(null); // Store event data inline
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -79,11 +80,19 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
         if (functionCall.name === 'update_event_details') {
           setDetectedIntent('create_event');
-          // Open event form with AI data
-          if (onOpenEventForm) {
-            onOpenEventForm(functionCall.args || {});
-          }
+          // Update event data inline (merge with existing data)
+          setEventData((prev: any) => ({
+            ...prev,
+            ...functionCall.args
+          }));
         } else if (functionCall.name === 'save_and_close_event') {
+          // Save event to backend
+          if (eventData) {
+            // Call the onOpenEventForm to actually save the event
+            if (onOpenEventForm) {
+              onOpenEventForm(eventData);
+            }
+          }
           // Event saved, close assistant
           setTimeout(() => {
             onClose();
@@ -156,6 +165,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
     setMessages([]);
     setInputText('');
     setDetectedIntent(null);
+    setEventData(null);
     setIsLoading(false);
     setIsRecording(false);
   };
@@ -202,7 +212,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
       {/* Bottom Sheet */}
       <div
         className={`fixed left-0 right-0 max-w-2xl mx-auto bg-surface rounded-t-3xl shadow-2xl z-50 transition-all duration-300 ${
-          detectedIntent === 'create_event' ? 'top-[20%] bottom-0' : 'top-[40%] bottom-0'
+          detectedIntent === 'create_event' ? 'top-[5%] bottom-0' : 'top-[40%] bottom-0'
         }`}
         onTouchStart={handleDragStart}
         onTouchMove={handleDragMove}
@@ -312,8 +322,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
           {/* Chat Mode */}
           {mode === 'chat' && (
             <div className="flex-1 flex flex-col min-h-0">
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto">
+              {/* Messages - ridotte quando c'è il form */}
+              <div className={`${detectedIntent === 'create_event' ? 'flex-[0.6]' : 'flex-1'} overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto`}>
                 {messages.length === 0 && (
                   <div className="text-center text-text-secondary py-8">
                     <Icons.Sparkles className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -356,6 +366,81 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
 
                 <div ref={messagesEndRef} />
               </div>
+
+              {/* Event Form Inline - appare sotto la chat */}
+              {detectedIntent === 'create_event' && eventData && (
+                <div className="flex-shrink-0 p-4 bg-background border-t border-gray-700 max-h-[40vh] overflow-y-auto">
+                  <div className="max-w-2xl w-full mx-auto space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icons.Calendar className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-semibold text-primary">Creazione Evento</span>
+                    </div>
+
+                    {/* Title */}
+                    <div>
+                      <label className="text-xs text-text-secondary block mb-1">Titolo</label>
+                      <input
+                        type="text"
+                        value={eventData.title || ''}
+                        onChange={(e) => setEventData({...eventData, title: e.target.value})}
+                        className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Inserisci titolo..."
+                      />
+                    </div>
+
+                    {/* Date/Time */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-text-secondary block mb-1">Data inizio</label>
+                        <input
+                          type="datetime-local"
+                          value={eventData.start_datetime ? eventData.start_datetime.slice(0, 16) : ''}
+                          onChange={(e) => setEventData({...eventData, start_datetime: e.target.value + ':00'})}
+                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-text-secondary block mb-1">Data fine</label>
+                        <input
+                          type="datetime-local"
+                          value={eventData.end_datetime ? eventData.end_datetime.slice(0, 16) : ''}
+                          onChange={(e) => setEventData({...eventData, end_datetime: e.target.value + ':00'})}
+                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    {eventData.amount !== undefined && (
+                      <div>
+                        <label className="text-xs text-text-secondary block mb-1">Importo €</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={eventData.amount || ''}
+                          onChange={(e) => setEventData({...eventData, amount: parseFloat(e.target.value)})}
+                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    {eventData.description && (
+                      <div>
+                        <label className="text-xs text-text-secondary block mb-1">Descrizione</label>
+                        <textarea
+                          value={eventData.description || ''}
+                          onChange={(e) => setEventData({...eventData, description: e.target.value})}
+                          className="w-full bg-surface border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                          rows={2}
+                          placeholder="Inserisci descrizione..."
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Chat Input */}
               <div className="flex-shrink-0 p-4 border-t border-gray-700 safe-area-inset-bottom">
