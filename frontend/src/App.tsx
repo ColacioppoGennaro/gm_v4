@@ -86,20 +86,55 @@ const App: React.FC = () => {
     loadData();
   }, []);
 
-  const handleLoginSuccess = (userData: User) => {
+  const handleLoginSuccess = async (userData: User) => {
     setUser(userData);
     setIsAuthenticated(true);
-    
+
     // Check onboarding
     const onboardingComplete = localStorage.getItem('onboardingComplete') === 'true';
     if (!onboardingComplete && !userData.onboarding_completed) {
       setShowOnboarding(true);
+      return; // Don't load data yet if onboarding is needed
+    }
+
+    // Load app data after successful login
+    setIsLoading(true);
+    try {
+      const [eventsData, categoriesData, documentsData] = await Promise.all([
+        apiService.getEvents(),
+        apiService.getCategories(),
+        apiService.getDocuments(),
+      ]);
+      setEvents(eventsData.map(e => ({...e, category: categoriesData.find(c => c.id === e.category_id)})));
+      setCategories(categoriesData);
+      setDocuments(documentsData);
+    } catch (error) {
+      console.error("Failed to load data after login", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
     localStorage.setItem('onboardingComplete', 'true');
     setShowOnboarding(false);
+
+    // Load app data after onboarding
+    setIsLoading(true);
+    try {
+      const [eventsData, categoriesData, documentsData] = await Promise.all([
+        apiService.getEvents(),
+        apiService.getCategories(),
+        apiService.getDocuments(),
+      ]);
+      setEvents(eventsData.map(e => ({...e, category: categoriesData.find(c => c.id === e.category_id)})));
+      setCategories(categoriesData);
+      setDocuments(documentsData);
+    } catch (error) {
+      console.error("Failed to load data after onboarding", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOpenEventModal = (event?: Event, date?: Date, aiMode = false) => {
