@@ -445,10 +445,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
             setConversation(prev => [...prev, { role: 'ai', content: 'Si è verificato un errore.' }]);
         } finally {
             setAiStatus('idle');
-            // Focus back to input after AI response
-            setTimeout(() => {
+            // Focus back to input after AI response - multiple attempts for reliability
+            requestAnimationFrame(() => {
                 aiTextInputRef.current?.focus();
-            }, 100);
+                setTimeout(() => {
+                    aiTextInputRef.current?.focus();
+                }, 50);
+            });
         }
     };
 

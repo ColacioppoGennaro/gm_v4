@@ -42,7 +42,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onRequestToggleStatus, onE
             <h3 className={`font-bold text-text-primary pr-2 ${isCompleted ? 'line-through' : ''}`}>
                 {category?.icon} {title}
             </h3>
-            {amount && <span className="text-lg font-semibold text-primary">€{amount.toFixed(2)}</span>}
+            {amount && <span className="text-lg font-semibold text-primary">€{typeof amount === 'number' ? amount.toFixed(2) : parseFloat(amount).toFixed(2)}</span>}
         </div>
         
         {isExpired && <span className="text-xs font-bold text-red-400 bg-red-500/20 px-2 py-0.5 rounded-full mt-1 inline-block">SCADUTO</span>}
