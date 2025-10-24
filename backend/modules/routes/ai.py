@@ -112,7 +112,8 @@ def ai_chat(current_user):
         data = request.get_json()
         messages = data.get('messages', [])
         user_events = data.get('events', [])  # Events from frontend
-        categories = data.get('categories', [])  # Categories from frontend
+        categories = data.get('categories', []) or []  # Categories from frontend (handle None)
+        form_state = data.get('form_state', {})  # Current form state so AI can see what's filled
 
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
@@ -151,77 +152,92 @@ def ai_chat(current_user):
                 'parts': [{'text': msg['content']}]
             })
 
+        # Build form state description for AI to see
+        form_state_desc = "📝 STATO FORM CORRENTE:\n"
+        form_state_desc += f"- Titolo: {form_state.get('title') or '❌ MANCANTE'}\n"
+        form_state_desc += f"- Data inizio: {form_state.get('start_datetime') or '❌ MANCANTE'}\n"
+        form_state_desc += f"- Categoria: {form_state.get('category_id') or '❌ MANCANTE'}\n"
+        form_state_desc += f"- Importo: {form_state.get('amount') or 'non specificato'}\n"
+        form_state_desc += f"- Colore: {form_state.get('color') or 'non specificato'}\n"
+        form_state_desc += f"- Promemoria: {form_state.get('reminders') or 'nessuno'}\n"
+        form_state_desc += f"- Ricorrenza: {form_state.get('recurrence') or 'none'}\n"
+
         # Build categories description for AI
         categories_desc = ""
         if categories and len(categories) > 0:
-            categories_desc = "\n\n📋 CATEGORIE DISPONIBILI:\n"
+            categories_desc = "\n📋 CATEGORIE DISPONIBILI:\n"
             for cat in categories:
                 cat_name = cat.get('name', '')
                 cat_id = cat.get('id', '')
                 cat_icon = cat.get('icon', '')
                 categories_desc += f"- {cat_icon} {cat_name} (id: {cat_id})\n"
+        else:
+            categories_desc = "\n📋 CATEGORIE DISPONIBILI: Nessuna categoria disponibile\n"
 
-        # System instruction - AI PROATTIVA che INTERVISTA l'utente
-        system_instruction = f"""Sei un assistente PROATTIVO per la creazione di eventi. Il tuo obiettivo è compilare TUTTI i campi del modulo facendo domande chiare all'utente.
+        # Get category names for safe join
+        category_names = ', '.join([c.get('name', '') for c in categories]) if categories else "nessuna"
 
+        # System instruction - AI AUTONOMA con VISTA del form
+        system_instruction = f"""Sei un assistente AI intelligente e autonomo per gestione eventi e documenti.
+
+{form_state_desc}
 {categories_desc}
-
 {events_context}
 
-🎯 TUO OBIETTIVO: Raccogliere TUTTI questi campi obbligatori/importanti:
-1. ✅ Titolo (OBBLIGATORIO)
-2. ✅ Data inizio (OBBLIGATORIO)
-3. ✅ Categoria (OBBLIGATORIO) - Scegli tra: {', '.join([c.get('name', '') for c in categories])}
-4. 💰 Importo (se è una spesa/pagamento)
-5. 🎨 Colore (blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, viola=#8B5CF6, giallo=#F59E0B, rosa=#EC4899)
-6. 🔔 Promemoria (0=subito, 5=5min, 10=10min, 30=30min, 60=1h, 1440=1giorno prima)
-7. 🔄 Ricorrenza (none, daily, weekly, monthly, yearly)
+🛠️ STRUMENTI DISPONIBILI:
+1. update_event_details() - aggiorna campi del form evento
+2. save_and_close_event() - salva evento quando completo
+3. BOTTONI UI nell'interfaccia: 📷 Foto, 📁 File, 🎤 Voce
 
-📋 COME DEVI COMPORTARTI:
-1. OGNI messaggio dell'utente → Estrai informazioni E aggiorna con update_event_details()
-2. DOPO OGNI update_event_details() → Rispondi SEMPRE con:
-   - Breve conferma di cosa hai capito
-   - DOMANDA CHIARA sul prossimo campo mancante
-3. SE l'utente fornisce più informazioni insieme (es. "bolletta luce 100 euro il 30") → Estrai TUTTO e aggiorna TUTTO
-4. Continua a fare domande finché non hai almeno: titolo, data, categoria
-5. Quando hai i 3 campi obbligatori → Chiedi: "Ho inserito tutto. Ricontrolla e dimmi se va bene. Vuoi salvare?"
-6. SE l'utente dice "sì"/"salva"/"confermo"/"salvalo tu" → Chiama save_and_close_event()
+🎯 TUO RUOLO:
+- Guarda lo stato form sopra: cosa è compilato? cosa manca?
+- Aiuta l'utente a completare l'evento facendo domande intelligenti
+- Se l'utente vuole fare foto/caricare file → suggerisci di usare i bottoni UI
+- Prendi decisioni autonome su come aiutare meglio
 
-⚠️ REGOLE FERREE:
-- NON aspettare che l'utente ti dica tutto - FAI TU LE DOMANDE!
-- NON lasciare MAI il campo "text" vuoto - rispondi SEMPRE!
-- SE non hai il titolo → Chiedi "Che evento vuoi creare?"
-- SE hai titolo ma non data → Chiedi "Per quando?"
-- SE hai titolo+data ma non categoria → Chiedi "Che categoria? ({', '.join([c.get('name', '') for c in categories])})"
-- DOPO i 3 obbligatori → Chiedi importo, colore, promemoria, ricorrenza
+🧠 COME RAGIONARE:
+1. GUARDA il form corrente sopra - cosa manca?
+2. SE utente dà informazioni → aggiorna con update_event_details() E conferma
+3. SE utente dice "voglio fare foto" → rispondi "Usa il bottone 📷 Foto qui sotto!"
+4. SE utente dice "carica file" → rispondi "Usa il bottone 📁 File qui sotto!"
+5. DOPO ogni update → Guarda di nuovo il form e chiedi cosa manca
+6. SE hai almeno title+date+category → chiedi conferma "Vuoi salvare?"
+7. SE utente conferma → chiama save_and_close_event()
 
-💡 ESEMPI DI COMPORTAMENTO PROATTIVO:
+📊 CAMPI EVENTO:
+- Titolo (OBBLIGATORIO)
+- Data inizio (OBBLIGATORIO)
+- Categoria (OBBLIGATORIO): {category_names}
+- Importo (opzionale)
+- Colore (opzionale): blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, viola=#8B5CF6, giallo=#F59E0B, rosa=#EC4899
+- Promemoria (opzionale): 0=subito, 5=5min, 10=10min, 30=30min, 60=1h, 1440=1giorno
+- Ricorrenza (opzionale): none, daily, weekly, monthly, yearly
 
-Caso 1 - Utente dice poco:
-Utente: "inserisci evento"
-Tu: "Certo! Che evento vuoi creare?"
-[Non chiami ancora update_event_details perché non hai info]
+⚠️ IMPORTANTE:
+- Rispondi SEMPRE con testo, mai vuoto
+- Sii naturale e conversazionale
+- Usa i bottoni UI quando appropriato
+- SEI AUTONOMO - decidi tu come aiutare meglio
 
-Caso 2 - Utente dà info parziali:
-Utente: "bolletta luce"
-→ Chiama update_event_details(title="Bolletta luce")
-→ Rispondi: "Ok, bolletta luce! Per quando è la scadenza?"
+💬 ESEMPI:
 
-Caso 3 - Utente dà più info:
-Utente: "bolletta luce 100 euro il 30 giugno categoria personale"
-→ Chiama update_event_details(title="Bolletta luce", amount=100, start_datetime="2025-06-30T09:00:00", category_id="<id>")
-→ Rispondi: "Perfetto! Bolletta luce da 100€ il 30 giugno, categoria personale. Che colore vuoi? (blu, verde, rosso, viola, rosa, arancione, giallo)"
+Utente: "bolletta gas"
+[Guardi form: title=mancante]
+→ update_event_details(title="Bolletta gas")
+→ Rispondi: "Ok, bolletta gas! Per quando scade?"
 
-Caso 4 - Chiedi conferma:
-Utente: "no, non voglio altro"
-Tu: "Perfetto! Ho inserito: bolletta luce, 100€, 30 giugno, categoria personale. Vuoi salvare?"
+Utente: "voglio fare la foto"
+→ Rispondi: "Perfetto! Usa il bottone 📷 Foto qui sotto per scansionare la bolletta!"
 
-Caso 5 - Salva:
-Utente: "sì" / "salva" / "salvalo tu"
-→ Chiama save_and_close_event()
+Utente: "il 30 giugno"
+[Guardi form: title="Bolletta gas", date=mancante]
+→ update_event_details(start_datetime="2025-06-30T09:00:00")
+→ Rispondi: "Ok, 30 giugno. Che categoria? ({category_names})"
+
+Utente: "salvalo tu"
+[Guardi form: hai title+date+category]
+→ save_and_close_event()
 → Rispondi: "Evento salvato!"
-
-🚨 IMPORTANTE: Sii PROATTIVO! FAI LE DOMANDE! Non aspettare!
 """
         
         # Build category IDs description for function

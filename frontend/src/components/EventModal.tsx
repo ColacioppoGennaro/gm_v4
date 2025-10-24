@@ -385,7 +385,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                 },
                 body: JSON.stringify({
                     messages: currentConversation,
-                    categories: categories  // Pass categories to backend
+                    categories: categories,  // Pass categories to backend
+                    form_state: formData     // Pass current form state so AI can see what's filled
                 })
             });
             
