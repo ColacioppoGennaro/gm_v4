@@ -161,34 +161,53 @@ def ai_chat(current_user):
                 cat_icon = cat.get('icon', '')
                 categories_desc += f"- {cat_icon} {cat_name} (id: {cat_id})\n"
 
-        # System instruction - Come nel prototipo EventModal
+        # System instruction - Come nel prototipo EventModal ma PIÙ ESPLICITO
         system_instruction = f"""Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.).
 
 {categories_desc}
 
 {events_context}
 
-ISTRUZIONI:
-1. Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, colore, ecc.)
-2. Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva
-3. Quando l'utente specifica una categoria (es. "categoria personale", "categoria lavoro"), usa l'ID corrispondente dalla lista sopra
-4. Quando l'utente specifica un colore (es. "colore viola", "colore rosso"), usa il codice esadecimale corrispondente: viola=#8B5CF6, blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, giallo=#F59E0B, rosa=#EC4899
-5. Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi conferma all'utente
-6. Se l'utente conferma con parole come 'sì', 'salva', 'confermo', 'va bene', 'salvalo tu' → DEVI usare la funzione 'save_and_close_event' per salvare
-7. Non fare altro dopo aver chiamato 'save_and_close_event'
+REGOLE FONDAMENTALI:
+1. Fai domande brevi e chiare, UNA ALLA VOLTA
+2. OGNI VOLTA che chiami update_event_details, DEVI SEMPRE rispondere con una breve conferma + domanda successiva
+3. IMPORTANTE: NON lasciare mai il campo "text" vuoto - rispondi SEMPRE!
+4. Segui QUESTO ORDINE DI DOMANDE:
+   a) Titolo (es. "Che evento vuoi creare?")
+   b) Data di inizio (es. "Per quando?")
+   c) Importo se applicabile (es. "Quanto costa?")
+   d) Categoria (es. "Che categoria? {', '.join([c.get('name', '') for c in categories])}")
+   e) Colore (es. "Che colore vuoi? (blu, verde, rosso, viola, arancione, giallo, rosa)")
+   f) Promemoria (es. "Vuoi un promemoria? (5min, 10min, 30min, 1h, 1giorno)")
+   g) Ricorrenza (es. "Si ripete? (no, giornaliero, settimanale, mensile, annuale)")
+   h) CONFERMA FINALE: "Ho inserito tutto. Vuoi salvare?"
+5. Quando l'utente specifica una categoria, usa l'ID dalla lista sopra
+6. Quando l'utente specifica un colore, traduci: viola=#8B5CF6, blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, giallo=#F59E0B, rosa=#EC4899
+7. Se l'utente dice "sì", "salva", "confermo", "va bene", "salvalo tu" → DEVI chiamare save_and_close_event()
 
-ESEMPI:
+ESEMPI COMPLETI CON RISPOSTA OBBLIGATORIA:
+
+Esempio 1:
 Utente: "inserisci bolletta luce 100 euro"
 → Chiama update_event_details(title="Bolletta luce", amount=100)
-→ Rispondi: "Ok! Bolletta luce da 100€. Per quando è la scadenza?"
+→ DEVI RISPONDERE: "Ok! Bolletta luce da 100€. Per quando è la scadenza?"
 
-Utente: "categoria personale colore viola"
-→ Chiama update_event_details(category_id="<id_categoria_personale>", color="#8B5CF6")
-→ Rispondi: "Perfetto! Categoria personale con colore viola. È tutto corretto?"
+Esempio 2:
+Utente: "colore rosa"
+→ Chiama update_event_details(color="#EC4899")
+→ DEVI RISPONDERE: "Perfetto, colore rosa impostato! Vuoi un promemoria?"
 
-Utente: "salvalo tu" o "salva"
+Esempio 3:
+Utente: "categoria personale"
+→ Chiama update_event_details(category_id="<id_personale>")
+→ DEVI RISPONDERE: "Ok, categoria personale! Che colore vuoi?"
+
+Esempio 4:
+Utente: "salvalo tu"
 → Chiama save_and_close_event()
-→ Rispondi: "Salvato!"
+→ DEVI RISPONDERE: "Salvato!"
+
+RICORDA: Dopo OGNI function call, rispondi SEMPRE con testo!
 """
         
         # Build category IDs description for function

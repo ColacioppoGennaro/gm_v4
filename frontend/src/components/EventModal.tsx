@@ -301,10 +301,16 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                                 setShowForm(true); // Mostra il form quando AI inizia a compilare
                                 sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
                             } else if (fc.name === 'save_and_close_event') {
-                                handleSaveRef.current().then(() => {
-                                    stopListening();
-                                    onClose(); // Chiudi la finestra dopo il salvataggio
-                                });
+                                console.log('[EventModal] save_and_close_event chiamato (voice)!');
+                                handleSaveRef.current()
+                                    .then(() => {
+                                        console.log('[EventModal] Salvataggio completato (voice), chiudo finestra...');
+                                        stopListening();
+                                        onClose(); // Chiudi la finestra dopo il salvataggio
+                                    })
+                                    .catch((error) => {
+                                        console.error('[EventModal] Errore durante save_and_close_event (voice):', error);
+                                    });
                             }
                         })
                     }
@@ -414,9 +420,16 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                         setFormData(prev => ({ ...prev, ...updatedFormData }));
                         setShowForm(true); // Mostra il form quando AI inizia a compilare
                     } else if (fc.name === 'save_and_close_event') {
-                        await handleSaveRef.current();
-                        setAiStatus('idle');
-                        onClose(); // Chiudi la finestra dopo il salvataggio
+                        console.log('[EventModal] save_and_close_event chiamato!');
+                        try {
+                            await handleSaveRef.current();
+                            console.log('[EventModal] Salvataggio completato, chiudo finestra...');
+                            setAiStatus('idle');
+                            onClose(); // Chiudi la finestra dopo il salvataggio
+                        } catch (error) {
+                            console.error('[EventModal] Errore durante save_and_close_event:', error);
+                            setConversation(prev => [...prev, { role: 'ai', content: 'Errore durante il salvataggio. Riprova.' }]);
+                        }
                         return;
                     }
                 }
@@ -426,12 +439,16 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
             if (result.text) {
                 setConversation(prev => [...prev, { role: 'ai', content: result.text }]);
             }
-    
+
         } catch (error) {
             console.error('Text prompt error:', error);
             setConversation(prev => [...prev, { role: 'ai', content: 'Si è verificato un errore.' }]);
         } finally {
             setAiStatus('idle');
+            // Focus back to input after AI response
+            setTimeout(() => {
+                aiTextInputRef.current?.focus();
+            }, 100);
         }
     };
 
@@ -446,11 +463,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   }, [conversation]);
 
   useEffect(() => {
-    // Re-focus text input after AI responds
-    if (aiMode && aiStatus === 'idle' && conversation[conversation.length - 1]?.role === 'ai') {
-        aiTextInputRef.current?.focus();
+    // Focus input when modal opens in AI mode
+    if (isOpen && aiMode && aiTextInputRef.current) {
+        setTimeout(() => {
+            aiTextInputRef.current?.focus();
+        }, 100);
     }
-  }, [conversation, aiStatus, aiMode]);
+  }, [isOpen, aiMode]);
   
   useEffect(() => {
     if (isOpen) {
