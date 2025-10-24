@@ -285,12 +285,26 @@ Utente: "salvalo tu"
             "systemInstruction": {"parts": [{"text": system_instruction}]},
             "tools": tools
         }
-        
+
         import time
         max_retries = 3
         for attempt in range(max_retries):
             try:
                 response = requests.post(gemini_url, json=payload, timeout=30)
+
+                # Handle rate limiting (429) with exponential backoff
+                if response.status_code == 429:
+                    wait_time = (2 ** attempt) * 2  # 2s, 4s, 8s
+                    logger.warning(f"Rate limit hit (429), waiting {wait_time}s before retry {attempt+1}/{max_retries}")
+                    if attempt < max_retries - 1:
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        return jsonify({
+                            'error': 'Troppe richieste. Aspetta 30 secondi e riprova.',
+                            'details': 'Rate limit Gemini API raggiunto.'
+                        }), 429
+
                 response.raise_for_status()
                 result = response.json()
 

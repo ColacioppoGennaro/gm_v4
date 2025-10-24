@@ -443,7 +443,10 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
 
         } catch (error) {
             console.error('Text prompt error:', error);
-            setConversation(prev => [...prev, { role: 'ai', content: 'Si è verificato un errore.' }]);
+            const errorMessage = error instanceof Error && error.message.includes('429')
+                ? 'Troppe richieste. Aspetta 30 secondi e riprova. 😊'
+                : 'Si è verificato un errore. Riprova.';
+            setConversation(prev => [...prev, { role: 'ai', content: errorMessage }]);
         } finally {
             setAiStatus('idle');
             // Focus back to input after AI response - multiple attempts for reliability
