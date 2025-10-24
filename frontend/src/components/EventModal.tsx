@@ -68,7 +68,6 @@ interface EventModalProps {
   onDelete: (eventId: string) => void;
   defaultDate?: Date;
   aiMode?: boolean;
-  aiData?: any;  // Data from AI assistant
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#EF4444', '#F97316', '#8B5CF6', '#F59E0B', '#EC4899'];
@@ -84,7 +83,7 @@ interface ConversationMessage {
     content: string;
 }
 
-const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categories, onSave, onDelete, defaultDate, aiMode, aiData }) => {
+const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categories, onSave, onDelete, defaultDate, aiMode }) => {
   
   const getInitialFormData = useCallback(() => {
     const baseDate = defaultDate || new Date();
@@ -117,39 +116,14 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
       };
     }
 
-    // Merge with AI data if available
-    if (aiData) {
-      console.log('[EventModal] Merging AI data:', aiData);
-      return {
-        ...defaultNewEvent,
-        ...aiData,
-        // Ensure dates are in correct format
-        start_datetime: aiData.start_datetime ? toLocalISOString(new Date(aiData.start_datetime)) : defaultNewEvent.start_datetime,
-        end_datetime: aiData.end_datetime ? toLocalISOString(new Date(aiData.end_datetime)) : defaultNewEvent.end_datetime,
-      };
-    }
-
     return defaultNewEvent;
-  }, [event, defaultDate, categories, aiData]);
+  }, [event, defaultDate, categories]);
 
   const [formData, setFormData] = useState<Partial<Event>>(getInitialFormData());
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  // Update form data in real-time when AI sends new data (only if aiMode is true)
-  useEffect(() => {
-    if (aiData && aiMode) {
-      console.log('[EventModal] Real-time AI data update:', aiData);
-      setFormData(prev => ({
-        ...prev,
-        ...aiData,
-        start_datetime: aiData.start_datetime ? toLocalISOString(new Date(aiData.start_datetime)) : prev.start_datetime,
-        end_datetime: aiData.end_datetime ? toLocalISOString(new Date(aiData.end_datetime)) : prev.end_datetime,
-      }));
-    }
-  }, [aiData, aiMode]);
 
   // --- AI State ---
   const sessionPromiseRef = useRef<Promise<LiveSession> | null>(null);
@@ -167,6 +141,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   const [conversation, setConversation] = useState<ConversationMessage[]>([{ role: 'ai', content: 'Ciao! Come posso aiutarti?' }]);
   const [aiTextInput, setAiTextInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false); // Form nascosto all'inizio in AI mode
   
   const formDataRef = useRef(formData);
   useEffect(() => {
@@ -310,6 +285,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                                 if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
 
                                 setFormData(prev => ({ ...prev, ...updatedFormData }));
+                                setShowForm(true); // Mostra il form quando AI inizia a compilare
                                 sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
                             } else if (fc.name === 'save_and_close_event') {
                                 handleSaveRef.current();
@@ -404,6 +380,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                         if(start_datetime) updatedFormData.start_datetime = toLocalISOString(new Date(start_datetime));
                         if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
                         setFormData(prev => ({ ...prev, ...updatedFormData }));
+                        setShowForm(true); // Mostra il form quando AI inizia a compilare
                     } else if (fc.name === 'save_and_close_event') {
                         handleSaveRef.current();
                         setAiStatus('idle');
@@ -446,6 +423,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     if (isOpen) {
         setFormData(getInitialFormData());
         setIsSaving(false);
+        setShowForm(!aiMode); // In AI mode, form nascosto all'inizio
         if (aiMode) {
           setConversation([{ role: 'ai', content: 'Ciao! Come posso aiutarti?' }]);
         }
@@ -644,6 +622,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
             </div>
         )}
 
+        {(!aiMode || showForm) && (
         <form onSubmit={handleSubmit} className="flex flex-col flex-grow overflow-hidden">
             <div className="flex-grow p-4 overflow-y-auto space-y-4">
                 <div>
@@ -741,6 +720,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                 </div>
             </footer>
         </form>
+        )}
       </div>
     </div>
     

@@ -11,7 +11,6 @@ import CalendarView from './components/Calendar';
 import Documents from './components/Documents';
 import Settings from './components/Settings';
 import EventModal from './components/EventModal';
-import AIAssistant from './components/AIAssistant';
 
 type View = 'dashboard' | 'calendar' | 'documents' | 'settings';
 
@@ -23,8 +22,6 @@ const App: React.FC = () => {
   const [eventToEdit, setEventToEdit] = useState<Event | undefined>(undefined);
   const [newEventDate, setNewEventDate] = useState<Date | undefined>(undefined);
   const [isAiMode, setIsAiMode] = useState(false);
-  const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
-  const [aiEventData, setAiEventData] = useState<any>(null);
 
   // App Data State
   const [user, setUser] = useState<User | null>(null);
@@ -234,7 +231,12 @@ const App: React.FC = () => {
 
         {/* AI Assistant FAB */}
         <button
-          onClick={() => setIsAIAssistantOpen(true)}
+          onClick={() => {
+            setEventToEdit(undefined);
+            setNewEventDate(new Date());
+            setIsAiMode(true);
+            setIsEventModalOpen(true);
+          }}
           className="fixed bottom-20 right-4 md:bottom-24 md:right-8 lg:right-[calc((100vw-80rem)/2+2rem)] bg-primary text-white rounded-full p-4 shadow-lg hover:bg-violet-700 active:scale-95 transition-all z-40 min-w-[56px] min-h-[56px]"
           aria-label="Open AI Assistant"
         >
@@ -255,41 +257,16 @@ const App: React.FC = () => {
           ))}
         </nav>
 
-        {/* AI Assistant Bottom Sheet */}
-        <AIAssistant
-          isOpen={isAIAssistantOpen}
-          onClose={() => setIsAIAssistantOpen(false)}
-          events={events}
-          onOpenEventForm={(data) => {
-            // AI wants to create an event, save data and open modal
-            console.log('[App] AI event data received:', data);
-            setAiEventData(data);  // Save AI data
-            setEventToEdit(undefined);
-            setNewEventDate(data.start_datetime ? new Date(data.start_datetime) : new Date());
-            setIsAiMode(true);
-            if (!isEventModalOpen) setIsEventModalOpen(true);
-          }}
-          onOpenDocumentUpload={() => {
-            // Navigate to documents view
-            setCurrentView('documents');
-            setIsAIAssistantOpen(false);
-          }}
-        />
-
         {isEventModalOpen && (
           <EventModal
             isOpen={isEventModalOpen}
-            onClose={() => {
-              handleCloseEventModal();
-              setAiEventData(null);  // Clear AI data on close
-            }}
+            onClose={handleCloseEventModal}
             event={eventToEdit}
             categories={categories}
             onSave={eventToEdit ? handleUpdateEvent : handleAddEvent}
             onDelete={handleDeleteEvent}
             defaultDate={newEventDate}
             aiMode={isAiMode}
-            aiData={aiEventData}  // Pass AI data to modal
           />
         )}
       </div>
