@@ -300,17 +300,28 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                                 setFormData(prev => ({ ...prev, ...updatedFormData }));
                                 setShowForm(true); // Mostra il form quando AI inizia a compilare
                                 sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
+
                             } else if (fc.name === 'save_and_close_event') {
                                 console.log('[EventModal] save_and_close_event chiamato (voice)!');
                                 handleSaveRef.current()
                                     .then(() => {
                                         console.log('[EventModal] Salvataggio completato (voice), chiudo finestra...');
                                         stopListening();
-                                        onClose(); // Chiudi la finestra dopo il salvataggio
+                                        onClose();
                                     })
                                     .catch((error) => {
                                         console.error('[EventModal] Errore durante save_and_close_event (voice):', error);
                                     });
+
+                            } else if (fc.name === 'search_documents') {
+                                console.log('[EventModal] search_documents chiamato (voice):', fc.args);
+                                // TODO: Implementare ricerca documenti
+                                sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Ricerca in sviluppo" } } }));
+
+                            } else if (fc.name === 'create_document') {
+                                console.log('[EventModal] create_document chiamato (voice):', fc.args);
+                                // TODO: Implementare creazione documento
+                                sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Creazione documento in sviluppo" } } }));
                             }
                         })
                     }
@@ -420,6 +431,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
 
                         setFormData(prev => ({ ...prev, ...updatedFormData }));
                         setShowForm(true); // Mostra il form quando AI inizia a compilare
+
                     } else if (fc.name === 'save_and_close_event') {
                         console.log('[EventModal] save_and_close_event chiamato!');
                         try {
@@ -432,6 +444,22 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                             setConversation(prev => [...prev, { role: 'ai', content: 'Errore durante il salvataggio. Riprova.' }]);
                         }
                         return;
+
+                    } else if (fc.name === 'search_documents') {
+                        console.log('[EventModal] search_documents chiamato:', fc.args);
+                        // TODO: Implementare ricerca documenti
+                        setConversation(prev => [...prev, {
+                            role: 'ai',
+                            content: `🔍 Ricerca documenti: "${fc.args.query}" (in sviluppo)`
+                        }]);
+
+                    } else if (fc.name === 'create_document') {
+                        console.log('[EventModal] create_document chiamato:', fc.args);
+                        // TODO: Implementare creazione documento
+                        setConversation(prev => [...prev, {
+                            role: 'ai',
+                            content: `📄 Creazione documento: "${fc.args.title}" (in sviluppo)`
+                        }]);
                     }
                 }
             }

@@ -177,73 +177,100 @@ def ai_chat(current_user):
         # Get category names for safe join
         category_names = ', '.join([c.get('name', '') for c in categories]) if categories else "nessuna"
 
-        # System instruction - AI AUTONOMA con VISTA del form
-        system_instruction = f"""Sei un assistente AI intelligente e autonomo per gestione eventi e documenti.
+        # System instruction - MANUALE COMPLETO
+        system_instruction = f"""📘 MANUALE AI COMPLETO - Smart Life Organizer
+
+🎯 RUOLO: Assistente per inserimento dati intelligente
+OBIETTIVO PRIMARIO: Aiutare l'utente a INSERIRE DATI CORRETTAMENTE
 
 {form_state_desc}
 {categories_desc}
 {events_context}
 
-🛠️ STRUMENTI DISPONIBILI:
-1. update_event_details() - aggiorna campi del form evento
-2. save_and_close_event() - salva evento quando completo
-3. BOTTONI UI nell'interfaccia: 📷 Foto, 📁 File, 🎤 Voce
+🏗️ ARCHITETTURA:
+1. EVENTI CALENDARIO - Parametri: title (REQ), start_datetime (REQ), category_id (REQ), amount, color, reminders, recurrence
+   Functions: update_event_details(), save_and_close_event()
 
-🎯 TUO RUOLO:
-- Guarda lo stato form sopra: cosa è compilato? cosa manca?
-- Aiuta l'utente a completare l'evento facendo domande intelligenti
-- Se l'utente vuole fare foto/caricare file → suggerisci di usare i bottoni UI
-- Prendi decisioni autonome su come aiutare meglio
+2. DOCUMENTI VETTORIZZATI - Parametri: title, content, date, category_id
+   Functions: search_documents(query), create_document()
+   Note: Tutti vettorizzati per ricerca semantica (RAG)
 
-🧠 COME RAGIONARE:
-1. GUARDA il form corrente sopra - cosa manca?
-2. SE utente dà informazioni → aggiorna con update_event_details() E conferma
-3. SE utente dice "voglio fare foto" → rispondi "Usa il bottone 📷 Foto qui sotto!"
-4. SE utente dice "carica file" → rispondi "Usa il bottone 📁 File qui sotto!"
-5. DOPO ogni update → Guarda di nuovo il form e chiedi cosa manca
-6. SE hai almeno title+date+category → chiedi conferma "Vuoi salvare?"
-7. SE utente conferma → chiama save_and_close_event()
+3. UI: 📷 Foto, 📁 File, 🎤 Voce
+   Workflow Upload: User preme → OCR estrae dati → Tu ricevi risultati → Decidi azione
 
-📊 CAMPI EVENTO:
-- Titolo (OBBLIGATORIO)
-- Data inizio (OBBLIGATORIO)
-- Categoria (OBBLIGATORIO): {category_names}
-- Importo (opzionale)
-- Colore (opzionale): blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, viola=#8B5CF6, giallo=#F59E0B, rosa=#EC4899
-- Promemoria (opzionale): 0=subito, 5=5min, 10=10min, 30=30min, 60=1h, 1440=1giorno
-- Ricorrenza (opzionale): none, daily, weekly, monthly, yearly
+🧠 DECISION TREE:
 
-⚠️ IMPORTANTE:
-- Rispondi SEMPRE con testo, mai vuoto
-- Sii naturale e conversazionale
-- Usa i bottoni UI quando appropriato
-- SEI AUTONOMO - decidi tu come aiutare meglio
+IF user dà dati evento (title+date):
+  → GOAL: Completare 3 OBBLIGATORI (title, date, category)
+  → FLOW EVENTO
+
+IF user dice "carica/foto/scansiona":
+  → Suggerisci bottone UI appropriato
+
+IF user fa domanda ("ho pagato...?"):
+  → search_documents(query)
+  → Sintetizza risultati
+
+IF ricevi risultati OCR:
+  → Proponi: "Trovato X. Vuoi evento, documento, o entrambi?"
+  → FLOW DOCUMENTO/EVENTO
+
+📋 FLOW INSERIMENTO EVENTO:
+1. Controlla form_state - cosa hai già?
+2. SE manca title → Chiedi "Che evento?"
+3. SE manca date → Chiedi "Per quando?"
+4. SE manca category → Chiedi "Che categoria? ({category_names})"
+5. SE hai 3 obbligatori:
+   - Se title="bolletta/multa/pagamento" → Chiedi "Quanto costa?"
+   - Se è scadenza → Chiedi "Vuoi promemoria?"
+   - Altrimenti → "Ho tutto: [riassunto]. Vuoi aggiungere altro?"
+6. SE user dice "no/basta/salva" → save_and_close_event()
+
+⚠️ REGOLE:
+1. Guarda SEMPRE form_state prima di rispondere (può cambiare dalla UI)
+2. Rispondi SEMPRE con testo, mai vuoto
+3. Chiedi UNA cosa alla volta
+4. Dopo 3 obbligatori → chiedi solo opzionali RILEVANTI o "vuoi altro?"
+5. Se "basta/salva" → salva subito
+6. Correzioni → accetta e aggiorna
 
 💬 ESEMPI:
 
-Utente: "bolletta gas"
-[Guardi form: title=mancante]
-→ update_event_details(title="Bolletta gas")
-→ Rispondi: "Ok, bolletta gas! Per quando scade?"
+User: "bolletta gas"
+[form: title=null]
+→ update_event_details({{title: "Bolletta gas"}})
+→ "Ok, bolletta gas! Per quando?"
 
-Utente: "voglio fare la foto"
-→ Rispondi: "Perfetto! Usa il bottone 📷 Foto qui sotto per scansionare la bolletta!"
+User: "30 giugno"
+[form: title="Bolletta gas", date=null]
+→ update_event_details({{start_datetime: "2025-06-30T09:00:00"}})
+→ "30 giugno. Che categoria? ({category_names})"
 
-Utente: "il 30 giugno"
-[Guardi form: title="Bolletta gas", date=mancante]
-→ update_event_details(start_datetime="2025-06-30T09:00:00")
-→ Rispondi: "Ok, 30 giugno. Che categoria? ({category_names})"
+User: "personale"
+[form: hai title+date, manca category]
+→ update_event_details({{category_id: "id"}})
+→ "Categoria personale. Quanto costa?"
 
-Utente: "salvalo tu"
-[Guardi form: hai title+date+category]
+User: "100 euro"
+→ update_event_details({{amount: 100}})
+→ "Ho tutto: Bolletta gas, 30/06, personale, 100€. Vuoi aggiungere altro?"
+
+User: "no salva"
 → save_and_close_event()
-→ Rispondi: "Evento salvato!"
+→ "Evento salvato!"
+
+User: "voglio fare foto"
+→ "Perfetto! Usa il bottone 📷 Foto qui sotto!"
+
+User: "ho pagato bolletta luce?"
+→ search_documents("bolletta luce pagata")
+→ Sintetizza risultati
 """
         
         # Build category IDs description for function
         category_ids_desc = ', '.join([f"{c.get('name')} (id: {c.get('id')})" for c in categories]) if categories else "Nessuna categoria disponibile"
 
-        # Function declarations - Complete come nel prototipo EventModal
+        # Function declarations - COMPLETE con RAG
         tools = [{
             "function_declarations": [
                 {
@@ -271,6 +298,32 @@ Utente: "salvalo tu"
                         "type": "OBJECT",
                         "properties": {},
                         "required": []
+                    }
+                },
+                {
+                    "name": "search_documents",
+                    "description": "Cerca nei documenti vettorizzati usando ricerca semantica (RAG). Usa quando l'utente fa domande tipo 'ho pagato...?', 'quando...?', 'quanto ho speso...?'",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "query": {"type": "STRING", "description": "La query di ricerca in linguaggio naturale"},
+                            "top_k": {"type": "NUMBER", "description": "Numero massimo di risultati (default 5)"}
+                        },
+                        "required": ["query"]
+                    }
+                },
+                {
+                    "name": "create_document",
+                    "description": "Crea un nuovo documento nell'archivio vettorizzato. Usa quando l'utente vuole archiviare informazioni senza creare evento calendario.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "title": {"type": "STRING", "description": "Titolo del documento"},
+                            "content": {"type": "STRING", "description": "Contenuto testuale del documento"},
+                            "date": {"type": "STRING", "description": "Data associata al documento (ISO 8601)"},
+                            "category_id": {"type": "STRING", "description": f"Categoria documento. Scegli tra: {category_ids_desc}"}
+                        },
+                        "required": ["title", "content"]
                     }
                 }
             ]
