@@ -347,12 +347,12 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         e.preventDefault();
         const userMessage = aiTextInput.trim();
         if (!userMessage || aiStatus !== 'idle') return;
-    
+
         setAiTextInput('');
         const currentConversation = [...conversation, { role: 'user', content: userMessage }];
         setConversation(currentConversation);
         setAiStatus('thinking');
-    
+
         try {
             // Call backend AI endpoint instead of direct Gemini
             const token = localStorage.getItem('auth_token');
@@ -362,7 +362,10 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ messages: currentConversation })
+                body: JSON.stringify({
+                    messages: currentConversation,
+                    categories: categories  // Pass categories to backend
+                })
             });
             
             if (!response.ok) {

@@ -112,9 +112,15 @@ def ai_chat(current_user):
         data = request.get_json()
         messages = data.get('messages', [])
         user_events = data.get('events', [])  # Events from frontend
+        categories = data.get('categories', [])  # Categories from frontend
 
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
+
+        # Constants for AI context
+        COLORS = ['#3B82F6', '#10B981', '#EF4444', '#F97316', '#8B5CF6', '#F59E0B', '#EC4899']
+        RECURRENCE_OPTIONS = ['none', 'daily', 'weekly', 'monthly', 'yearly']
+        REMINDER_OPTIONS = [0, 5, 10, 15, 30, 60, 120, 1440]  # minutes
         
         # Build events context for AI
         events_context = ""
@@ -145,64 +151,80 @@ def ai_chat(current_user):
                 'parts': [{'text': msg['content']}]
             })
 
-        # System instruction - ESTREMAMENTE ESPLICITO
-        system_instruction = f"""Tu sei un assistente AI. Hai a disposizione la funzione update_event_details() per creare eventi.
+        # Build categories description for AI
+        categories_desc = ""
+        if categories and len(categories) > 0:
+            categories_desc = "\n\n📋 CATEGORIE DISPONIBILI:\n"
+            for cat in categories:
+                cat_name = cat.get('name', '')
+                cat_id = cat.get('id', '')
+                cat_icon = cat.get('icon', '')
+                categories_desc += f"- {cat_icon} {cat_name} (id: {cat_id})\n"
+
+        # System instruction - Come nel prototipo EventModal
+        system_instruction = f"""Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.).
+
+{categories_desc}
 
 {events_context}
 
-REGOLE FERREE:
-1. Se l'utente dice "inserisci", "crea", "aggiungi", "nuovo evento" → DEVI chiamare update_event_details()
-2. Se l'utente fa una domanda → rispondi cercando negli eventi sopra
-3. Quando l'utente dice "ok" o "salva", rispondi "Perfetto! Il form è pronto, salvalo quando vuoi!"
+ISTRUZIONI:
+1. Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, colore, ecc.)
+2. Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva
+3. Quando l'utente specifica una categoria (es. "categoria personale", "categoria lavoro"), usa l'ID corrispondente dalla lista sopra
+4. Quando l'utente specifica un colore (es. "colore viola", "colore rosso"), usa il codice esadecimale corrispondente: viola=#8B5CF6, blu=#3B82F6, verde=#10B981, rosso=#EF4444, arancione=#F97316, giallo=#F59E0B, rosa=#EC4899
+5. Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi conferma all'utente
+6. Se l'utente conferma con parole come 'sì', 'salva', 'confermo', 'va bene', 'salvalo tu' → DEVI usare la funzione 'save_and_close_event' per salvare
+7. Non fare altro dopo aver chiamato 'save_and_close_event'
 
-ESEMPI CON CHIAMATA FUNZIONE (SEGUI QUESTI):
+ESEMPI:
+Utente: "inserisci bolletta luce 100 euro"
+→ Chiama update_event_details(title="Bolletta luce", amount=100)
+→ Rispondi: "Ok! Bolletta luce da 100€. Per quando è la scadenza?"
 
-Esempio 1:
-Utente: "inserisci bolletta 50 euro"
-Azione: CHIAMA update_event_details con {{"title": "Bolletta", "amount": 50}}
-Risposta: "Ok! Bolletta da 50€. Per quando è la scadenza?"
+Utente: "categoria personale colore viola"
+→ Chiama update_event_details(category_id="<id_categoria_personale>", color="#8B5CF6")
+→ Rispondi: "Perfetto! Categoria personale con colore viola. È tutto corretto?"
 
-Esempio 2:
-Utente: "crea evento domani alle 10"
-Azione: CHIAMA update_event_details con {{"start_datetime": "2025-10-24T10:00:00"}}
-Risposta: "Ok! Evento per domani alle 10. Che titolo vuoi dargli?"
-
-Esempio 3:
-Utente: "aggiungi promemoria pagare affitto"
-Azione: CHIAMA update_event_details con {{"title": "Pagare affitto"}}
-Risposta: "Ok! Promemoria per pagare affitto. Quando?"
-
-Esempio 4 (utente dice "ok" o "salva"):
-Utente: "ok così va bene"
-Azione: NESSUNA funzione
-Risposta: "Perfetto! Il form è pronto, salvalo quando vuoi!"
-
-ESEMPI SENZA CHIAMATA (solo risposta):
-
-Esempio 5:
-Utente: "quando devo andare in palestra?"
-Azione: Cerca negli eventi sopra
-Risposta: "Hai palestra martedì 25 ottobre alle 18:00" oppure "Non ho trovato eventi sulla palestra"
-
-ADESSO SEGUI QUESTE REGOLE ALLA LETTERA!"""
+Utente: "salvalo tu" o "salva"
+→ Chiama save_and_close_event()
+→ Rispondi: "Salvato!"
+"""
         
-        # Function declarations - SOLO update_event_details (save è manuale con bottone)
+        # Build category IDs description for function
+        category_ids_desc = ', '.join([f"{c.get('name')} (id: {c.get('id')})" for c in categories]) if categories else "Nessuna categoria disponibile"
+
+        # Function declarations - Complete come nel prototipo EventModal
         tools = [{
-            "function_declarations": [{
-                "name": "update_event_details",
-                "description": "Aggiorna i dettagli dell'evento nel form di creazione",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "title": {"type": "STRING", "description": "Titolo evento"},
-                        "start_datetime": {"type": "STRING", "description": "Data/ora inizio ISO 8601"},
-                        "end_datetime": {"type": "STRING", "description": "Data/ora fine ISO 8601"},
-                        "amount": {"type": "NUMBER", "description": "Importo in euro"},
-                        "category_id": {"type": "STRING", "description": "ID categoria"},
-                        "description": {"type": "STRING", "description": "Descrizione"}
+            "function_declarations": [
+                {
+                    "name": "update_event_details",
+                    "description": "Aggiorna i dettagli di un evento nel form. Usa questa funzione per riempire i campi man mano che ottieni le informazioni dall'utente.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "title": {"type": "STRING", "description": "Il titolo dell'evento."},
+                            "start_datetime": {"type": "STRING", "description": "La data e ora di inizio in formato ISO 8601. Inferisci l'anno se non specificato."},
+                            "end_datetime": {"type": "STRING", "description": "La data e ora di fine in formato ISO 8601. Se non specificato, imposta la durata a 1 ora dall'inizio."},
+                            "description": {"type": "STRING", "description": "Una breve descrizione o nota per l'evento."},
+                            "amount": {"type": "NUMBER", "description": "L'importo monetario, se applicabile."},
+                            "category_id": {"type": "STRING", "description": f"L'ID della categoria. Scegli tra questi: {category_ids_desc}"},
+                            "recurrence": {"type": "STRING", "description": f"La ricorrenza. Scegli tra: {', '.join(RECURRENCE_OPTIONS)}"},
+                            "reminders": {"type": "ARRAY", "items": {"type": "NUMBER"}, "description": f"Promemoria in minuti prima dell'evento. Scegli tra: {', '.join(map(str, REMINDER_OPTIONS))}"},
+                            "color": {"type": "STRING", "description": f"Colore esadecimale per l'evento. Scegli tra: {', '.join(COLORS)}"}
+                        }
+                    }
+                },
+                {
+                    "name": "save_and_close_event",
+                    "description": "Salva l'evento con i dettagli correnti nel modulo e chiude la finestra. Da usare SOLO dopo che l'utente ha dato la conferma finale che i dettagli sono corretti.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {},
+                        "required": []
                     }
                 }
-            }]
+            ]
         }]
         
         import requests
