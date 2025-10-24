@@ -281,15 +281,30 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                             if (fc.name === 'update_event_details') {
                                 const { start_datetime, end_datetime, ...rest } = fc.args;
                                 const updatedFormData: Partial<Event> = { ...rest };
-                                if(start_datetime) updatedFormData.start_datetime = toLocalISOString(new Date(start_datetime));
-                                if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+
+                                // Handle dates with proper end_datetime calculation
+                                if(start_datetime) {
+                                    const startDate = new Date(start_datetime);
+                                    updatedFormData.start_datetime = toLocalISOString(startDate);
+
+                                    // If end_datetime not provided, set it to start + 1 hour
+                                    if(!end_datetime) {
+                                        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                                        updatedFormData.end_datetime = toLocalISOString(endDate);
+                                    }
+                                }
+                                if(end_datetime) {
+                                    updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+                                }
 
                                 setFormData(prev => ({ ...prev, ...updatedFormData }));
                                 setShowForm(true); // Mostra il form quando AI inizia a compilare
                                 sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "ok" } } }));
                             } else if (fc.name === 'save_and_close_event') {
-                                handleSaveRef.current();
-                                stopListening();
+                                handleSaveRef.current().then(() => {
+                                    stopListening();
+                                    onClose(); // Chiudi la finestra dopo il salvataggio
+                                });
                             }
                         })
                     }
@@ -380,13 +395,28 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                     if (fc.name === 'update_event_details') {
                         const { start_datetime, end_datetime, ...rest } = fc.args;
                         const updatedFormData: Partial<Event> = { ...rest };
-                        if(start_datetime) updatedFormData.start_datetime = toLocalISOString(new Date(start_datetime));
-                        if(end_datetime) updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+
+                        // Handle dates with proper end_datetime calculation
+                        if(start_datetime) {
+                            const startDate = new Date(start_datetime);
+                            updatedFormData.start_datetime = toLocalISOString(startDate);
+
+                            // If end_datetime not provided, set it to start + 1 hour
+                            if(!end_datetime) {
+                                const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+                                updatedFormData.end_datetime = toLocalISOString(endDate);
+                            }
+                        }
+                        if(end_datetime) {
+                            updatedFormData.end_datetime = toLocalISOString(new Date(end_datetime));
+                        }
+
                         setFormData(prev => ({ ...prev, ...updatedFormData }));
                         setShowForm(true); // Mostra il form quando AI inizia a compilare
                     } else if (fc.name === 'save_and_close_event') {
-                        handleSaveRef.current();
+                        await handleSaveRef.current();
                         setAiStatus('idle');
+                        onClose(); // Chiudi la finestra dopo il salvataggio
                         return;
                     }
                 }
