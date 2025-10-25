@@ -42,7 +42,7 @@ def analyze_document(current_user):
         # Call Gemini API
         import requests
         
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
         
         prompt = """Analizza questo documento e estrai le informazioni in formato JSON.
 Schema richiesto:
@@ -347,7 +347,7 @@ User: "ho pagato luce?"
         
         import requests
         
-        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+        gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
         
         payload = {
             "contents": contents,
@@ -460,7 +460,7 @@ User: "ho pagato luce?"
 # TEMP_DISABLED:         # Generate answer using Gemini Flash
 # TEMP_DISABLED:         import requests
 # TEMP_DISABLED: 
-# TEMP_DISABLED:         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={GEMINI_API_KEY}"
+# TEMP_DISABLED:         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
 # TEMP_DISABLED: 
 # TEMP_DISABLED:         system_prompt = """Sei un assistente che risponde SOLO usando i passaggi forniti tra parentesi quadre [i].
 # TEMP_DISABLED: Cita sempre i riferimenti numerici quando possibile.
