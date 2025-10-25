@@ -245,8 +245,11 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
         outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         
+        // Try gemini-2.5-flash-live first (optimized for Live API), fallback to gemini-2.0-flash-live-001
+        let modelToUse = 'gemini-2.5-flash-live';
+
         sessionPromiseRef.current = ai.live.connect({
-            model: 'gemini-2.0-flash',
+            model: modelToUse,
             callbacks: {
                 onopen: () => {
                     setAiStatus('listening');
