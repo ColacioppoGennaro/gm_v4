@@ -180,7 +180,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     handleSaveRef.current = handleSave;
   }, [handleSave]);
 
-  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi: 'Vuoi caricare anche un documento?' Se l'utente dice sì, chiama 'highlight_upload_buttons' e rispondi 'Premi i pulsanti Foto o File qui sotto!' Se l'utente dice no, chiedi conferma finale (es. \"Tutto ok. Salvo?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
+  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). IMPORTANTE: Quando usi 'update_event_details', l'utente VEDE SUBITO il form compilato sotto la chat. Non chiedergli di guardare cose che non vede - il form è visibile automaticamente. Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Vedi la data nel form? Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi: 'Vuoi caricare anche un documento?' Se l'utente dice sì, chiama 'highlight_upload_buttons' e rispondi 'Premi i pulsanti Foto o File qui sotto!' Se l'utente dice no, chiedi conferma finale (es. \"Vedi tutti i dati nel form. Va bene così? Salvo?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
 
   const updateEventDetailsFunction: FunctionDeclaration = useMemo(() => ({
     name: 'update_event_details',
@@ -589,7 +589,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
             has_document: true,
         };
         setFormData(prev => ({...prev, ...updatedFormData}));
-        setConversation(p => [...p, {role: 'ai', content: `Ho analizzato il documento. Ho trovato una ${analysis.document_type || 'informazione'}. Ho compilato i campi. È tutto corretto?`}]);
+        setShowForm(true); // Mostra il form con i dati compilati dall'analisi
+        setConversation(p => [...p, {role: 'ai', content: `Ho analizzato il documento. Ho trovato una ${analysis.document_type || 'informazione'}. Ho compilato i campi qui sotto. È tutto corretto?`}]);
     } catch(err) {
         setConversation(p => [...p, {role: 'ai', content: "Non sono riuscito ad analizzare il documento. Riprova."}]);
     } finally {

@@ -44,16 +44,23 @@ def analyze_document(current_user):
         
         gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
         
-        prompt = """Analizza questo documento e estrai le informazioni in formato JSON.
-Schema richiesto:
+        prompt = """IMPORTANTE: Leggi TUTTO il CONTENUTO del documento (non il nome file!). Analizza il testo e le informazioni scritte nel documento.
+
+Cerca nel documento:
+- Tipo documento (bolletta/fattura/ordine/multa/ricevuta/contratto/altro)
+- Descrizione/oggetto (es. "Ordine Caparol materiali edili", "Bolletta Enel luce")
+- Data scadenza/pagamento/emissione (cerca parole: scadenza, pagamento, data emissione, valuta fino al)
+- Importo totale in euro (cerca: totale, importo, da pagare, totale fattura, IVA inclusa)
+
+Schema JSON richiesto:
 {
-  "document_type": "bolletta" | "fattura" | "multa" | "ricevuta" | "altro",
-  "reason": "descrizione breve (es. 'Bolletta Enel Energia' o 'Multa ZTL')",
-  "due_date": "data scadenza in formato ISO 8601 YYYY-MM-DD (null se non presente)",
-  "amount": numero decimale importo in euro (null se non presente)
+  "document_type": "bolletta" | "fattura" | "ordine" | "multa" | "ricevuta" | "contratto" | "altro",
+  "reason": "descrizione dettagliata dell'oggetto del documento (es. 'Ordine Caparol materiali edili num. 3000123284' o 'Bolletta Enel energia elettrica')",
+  "due_date": "data scadenza/pagamento in formato ISO 8601 YYYY-MM-DD (null se non trovata nel testo)",
+  "amount": numero decimale importo totale in euro (null se non trovato nel testo)
 }
 
-Rispondi SOLO con il JSON, senza markdown o spiegazioni."""
+Rispondi SOLO con il JSON valido, senza markdown o spiegazioni."""
 
         payload = {
             "contents": [{
@@ -247,29 +254,30 @@ LIVELLO 2 - Cerca in DOCUMENTI (approfondita):
 
 ⚠️ REGOLE:
 1. Guarda SEMPRE form_state (può cambiare dalla UI)
-2. Rispondi SEMPRE con testo
-3. Chiedi UNA cosa alla volta
-4. Dopo 3 obbligatori → solo opzionali RILEVANTI
-5. "basta/salva" → salva subito
-6. Correzioni → accetta
+2. L'utente VEDE il form sotto la chat quando chiami update_event_details - di' "vedi nel form qui sotto"
+3. Rispondi SEMPRE con testo
+4. Chiedi UNA cosa alla volta
+5. Dopo 3 obbligatori → solo opzionali RILEVANTI
+6. "basta/salva" → salva subito
+7. Correzioni → accetta
 
 💬 ESEMPI:
 
 User: "bolletta gas"
 → update_event_details({{title: "Bolletta gas"}})
-→ "Ok! Per quando?"
+→ "Ok, vedi 'Bolletta gas' nel form! Per quando?"
 
 User: "30 giugno"
 → update_event_details({{start_datetime: "2025-06-30T09:00"}})
-→ "30 giugno. Categoria? ({category_names})"
+→ "30 giugno inserito! Categoria? ({category_names})"
 
 User: "personale"
 → update_event_details({{category_id: "id"}})
-→ "Quanto costa?"
+→ "Categoria Personale! Quanto costa?"
 
 User: "100 euro"
 → update_event_details({{amount: 100}})
-→ "Perfetto: Bolletta gas, 30/06, 100€. Vuoi caricare anche un documento?"
+→ "100€ inseriti! Vedi tutto nel form qui sotto. Vuoi caricare anche un documento?"
 
 User: "sì"
 → highlight_upload_buttons()
