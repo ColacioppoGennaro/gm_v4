@@ -9,7 +9,7 @@ interface EventCardProps {
 }
 
 const EventCard: React.FC<EventCardProps> = ({ event, onRequestToggleStatus, onEditEvent }) => {
-  const { title, amount, category, start_datetime, status, has_document, reminders, color } = event;
+  const { title, amount, category, start_datetime, status, document_count, reminders, color } = event;
 
   const eventDate = new Date(start_datetime);
   const isPast = eventDate < new Date();
@@ -49,7 +49,12 @@ const EventCard: React.FC<EventCardProps> = ({ event, onRequestToggleStatus, onE
 
         <div className="flex items-center justify-between mt-1 text-sm text-text-secondary">
           <div className="flex items-center gap-3">
-            {has_document && <Icons.Document className="h-5 w-5" title="Documento allegato" />}
+            {document_count && document_count > 0 && (
+              <div className="flex items-center gap-1">
+                <Icons.Document className="h-5 w-5" title="Documenti allegati" />
+                <span className="text-xs font-medium">{document_count}</span>
+              </div>
+            )}
             {reminders && reminders.length > 0 && <Icons.Bell className="h-5 w-5" title="Promemoria attivo" />}
           </div>
           <span className="font-medium">{eventTime}</span>

@@ -34,11 +34,12 @@ def get_events(current_user):
         
         # Build query
         query = """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.user_id = %s AND e.deleted_at IS NULL
@@ -66,7 +67,7 @@ def get_events(current_user):
         query += " ORDER BY e.start_datetime DESC"
         
         # Get total count
-        count_query = query.replace('SELECT e.*, c.name as category_name, c.color as category_color, c.icon as category_icon', 'SELECT COUNT(*) as total')
+        count_query = query.replace('SELECT\n                e.*,\n                c.name as category_name,\n                c.color as category_color,\n                c.icon as category_icon,\n                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count', 'SELECT COUNT(*) as total')
         count_result = db.execute_query(count_query, params, fetch_one=True)
         total = count_result['total'] if count_result and 'total' in count_result else 0
         
@@ -125,14 +126,15 @@ def get_today_events(current_user):
         tomorrow = today + timedelta(days=1)
         
         query = """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
-            WHERE e.user_id = %s 
+            WHERE e.user_id = %s
             AND e.deleted_at IS NULL
             AND DATE(e.start_datetime) = %s
             ORDER BY e.start_datetime ASC
@@ -169,14 +171,15 @@ def get_upcoming_events(current_user):
         next_week = today + timedelta(days=7)
         
         query = """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
-            WHERE e.user_id = %s 
+            WHERE e.user_id = %s
             AND e.deleted_at IS NULL
             AND e.start_datetime BETWEEN %s AND %s
             ORDER BY e.start_datetime ASC
@@ -211,11 +214,12 @@ def get_event(current_user, event_id):
     """Get single event by ID"""
     try:
         query = """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.id = %s AND e.user_id = %s AND e.deleted_at IS NULL
@@ -323,11 +327,12 @@ def create_event(current_user):
         # Get created event
         created_event = db.execute_query(
             """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.id = %s
@@ -488,11 +493,12 @@ def update_event(current_user, event_id):
         # Get updated event
         updated_event = db.execute_query(
             """
-            SELECT 
+            SELECT
                 e.*,
                 c.name as category_name,
                 c.color as category_color,
-                c.icon as category_icon
+                c.icon as category_icon,
+                (SELECT COUNT(*) FROM documents d WHERE d.event_id = e.id) as document_count
             FROM events e
             LEFT JOIN categories c ON e.category_id = c.id
             WHERE e.id = %s

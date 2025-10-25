@@ -24,6 +24,7 @@ export interface Event {
   category?: Category;
   status: EventStatus;
   has_document: boolean;
+  document_count?: number; // Number of documents attached to this event
   reminders: number[]; // Array of minutes before event
   source?: 'local' | 'google';
   description?: string;
