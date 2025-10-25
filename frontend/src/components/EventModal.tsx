@@ -142,7 +142,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   const [aiTextInput, setAiTextInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showForm, setShowForm] = useState(false); // Form nascosto all'inizio in AI mode
-  
+  const [highlightUploadButtons, setHighlightUploadButtons] = useState(false); // Highlight animation for upload buttons
+
   const formDataRef = useRef(formData);
   useEffect(() => {
     formDataRef.current = formData;
@@ -179,7 +180,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     handleSaveRef.current = handleSave;
   }, [handleSave]);
 
-  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi conferma all'utente (es. \"Ho inserito tutto. È corretto?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
+  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi: 'Vuoi caricare anche un documento?' Se l'utente dice sì, chiama 'highlight_upload_buttons' e rispondi 'Premi i pulsanti Foto o File qui sotto!' Se l'utente dice no, chiedi conferma finale (es. \"Tutto ok. Salvo?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
 
   const updateEventDetailsFunction: FunctionDeclaration = useMemo(() => ({
     name: 'update_event_details',
@@ -203,6 +204,12 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   const saveAndCloseEventFunction: FunctionDeclaration = useMemo(() => ({
     name: 'save_and_close_event',
     description: "Salva l'evento con i dettagli correnti nel modulo e chiude la finestra. Da usare SOLO dopo che l'utente ha dato la conferma finale che i dettagli sono corretti.",
+    parameters: { type: Type.OBJECT, properties: {}, required: [] },
+  }), []);
+
+  const highlightUploadButtonsFunction: FunctionDeclaration = useMemo(() => ({
+    name: 'highlight_upload_buttons',
+    description: "Evidenzia i pulsanti di caricamento documento (📷 Foto e 📁 File) con un'animazione per attirare l'attenzione dell'utente. Usa quando suggerisci di caricare un documento.",
     parameters: { type: Type.OBJECT, properties: {}, required: [] },
   }), []);
 
@@ -322,6 +329,16 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                                 console.log('[EventModal] create_document chiamato (voice):', fc.args);
                                 // TODO: Implementare creazione documento
                                 sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Creazione documento in sviluppo" } } }));
+
+                            } else if (fc.name === 'highlight_upload_buttons') {
+                                console.log('[EventModal] highlight_upload_buttons chiamato (voice)');
+                                // Attiva animazione highlight
+                                setHighlightUploadButtons(true);
+                                // Auto-disattiva dopo 5 secondi
+                                setTimeout(() => setHighlightUploadButtons(false), 5000);
+                                // Ferma la voce per abilitare i pulsanti upload
+                                stopListening();
+                                sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Pulsanti evidenziati, voce fermata" } } }));
                             }
                         })
                     }
@@ -363,7 +380,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                 responseModalities: [Modality.AUDIO],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
                 systemInstruction,
-                tools: [{ functionDeclarations: [updateEventDetailsFunction, saveAndCloseEventFunction] }],
+                tools: [{ functionDeclarations: [updateEventDetailsFunction, saveAndCloseEventFunction, highlightUploadButtonsFunction] }],
                 inputAudioTranscription: {},
                 outputAudioTranscription: {},
             },
@@ -373,7 +390,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         setAiStatus('error');
         setConversation(p => [...p, {role: 'ai', content: "Non ho accesso al microfono. Controlla le autorizzazioni."}]);
     }
-  }, [aiStatus, stopListening, updateEventDetailsFunction, saveAndCloseEventFunction, systemInstruction]);
+  }, [aiStatus, stopListening, updateEventDetailsFunction, saveAndCloseEventFunction, highlightUploadButtonsFunction, systemInstruction]);
 
     const handleTextPrompt = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -460,6 +477,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                             role: 'ai',
                             content: `📄 Creazione documento: "${fc.args.title}" (in sviluppo)`
                         }]);
+
+                    } else if (fc.name === 'highlight_upload_buttons') {
+                        console.log('[EventModal] highlight_upload_buttons chiamato');
+                        // Attiva animazione highlight
+                        setHighlightUploadButtons(true);
+                        // Auto-disattiva dopo 5 secondi
+                        setTimeout(() => setHighlightUploadButtons(false), 5000);
                     }
                 }
             }
@@ -698,13 +722,23 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/jpeg,image/png,application/pdf" />
                     <input type="file" ref={cameraInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" capture="environment" />
 
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Carica Documento">
-                        <Icons.Upload className="h-7 w-7"/>
-                    </button>
+                    <div className="relative">
+                        {highlightUploadButtons && (
+                            <div className="absolute inset-0 -m-2 rounded-full border-4 border-primary animate-ping"></div>
+                        )}
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="relative text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Carica Documento">
+                            <Icons.Upload className="h-7 w-7"/>
+                        </button>
+                    </div>
                     <MicButton />
-                    <button type="button" onClick={() => cameraInputRef.current?.click()} className="text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Usa Fotocamera">
-                        <Icons.Camera className="h-7 w-7"/>
-                    </button>
+                    <div className="relative">
+                        {highlightUploadButtons && (
+                            <div className="absolute inset-0 -m-2 rounded-full border-4 border-primary animate-ping"></div>
+                        )}
+                        <button type="button" onClick={() => cameraInputRef.current?.click()} className="relative text-text-secondary hover:text-primary disabled:opacity-50" disabled={aiStatus !== 'idle'} title="Usa Fotocamera">
+                            <Icons.Camera className="h-7 w-7"/>
+                        </button>
+                    </div>
                 </div>
             </div>
         )}

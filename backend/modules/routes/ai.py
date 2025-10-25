@@ -223,10 +223,13 @@ FLOW INSERIMENTO:
 2. Manca title? → Chiedi "Che evento?"
 3. Manca date? → Chiedi "Per quando?" (se non specificato, usa oggi)
 4. Manca category? → Chiedi "Che categoria? ({category_names})"
-5. Hai 3 obbligatori?
+5. Hai 3 obbligatori (title, date, category)?
    - Se bolletta/pagamento → Chiedi "Quanto costa?"
-   - Altrimenti → "Ho tutto: [riassunto]. Vuoi aggiungere altro?"
-6. User dice "salva/basta" → save_and_close_event()
+6. Dopo amount (o se non bolletta):
+   - "Ho tutto: [riassunto]. Vuoi caricare anche un documento?"
+   - User dice SÌ → highlight_upload_buttons() + "Usa i pulsanti 📷 Foto o 📁 File qui sotto!"
+   - User dice NO → "Ok. Vuoi aggiungere altro?"
+7. User dice "salva/basta" → save_and_close_event()
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 GOAL 2: RICERCA (2 livelli)
@@ -266,9 +269,16 @@ User: "personale"
 
 User: "100 euro"
 → update_event_details({{amount: 100}})
-→ "Perfetto: Bolletta gas, 30/06, 100€. Vuoi altro?"
+→ "Perfetto: Bolletta gas, 30/06, 100€. Vuoi caricare anche un documento?"
 
-User: "no salva"
+User: "sì"
+→ highlight_upload_buttons()
+→ "Usa i pulsanti 📷 Foto o 📁 File qui sotto!"
+
+[User carica documento → torna automaticamente qui]
+→ "Ho analizzato il documento. Va tutto bene?"
+
+User: "sì salva"
 → save_and_close_event()
 → "Salvato!"
 
@@ -340,6 +350,15 @@ User: "ho pagato luce?"
                             "category_id": {"type": "STRING", "description": f"Categoria documento. Scegli tra: {category_ids_desc}"}
                         },
                         "required": ["title", "content"]
+                    }
+                },
+                {
+                    "name": "highlight_upload_buttons",
+                    "description": "Evidenzia i pulsanti di caricamento documento (📷 Foto e 📁 File) con un'animazione per attirare l'attenzione dell'utente. Usa quando suggerisci di caricare un documento.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {},
+                        "required": []
                     }
                 }
             ]
