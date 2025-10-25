@@ -133,6 +133,8 @@ def create_app():
         })
     
     # Serve frontend static files
+    @app.route('/gm_v4/', defaults={'path': ''})
+    @app.route('/gm_v4/<path:path>')
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
     def serve_frontend(path):
