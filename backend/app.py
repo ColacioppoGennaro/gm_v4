@@ -149,7 +149,7 @@ def create_app():
         import os
         import mimetypes
         
-        frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend', 'dist')
+        frontend_dir = os.path.join(os.path.dirname(__file__), 'static')
         
         # If path is empty, serve index.html
         if path == '':
