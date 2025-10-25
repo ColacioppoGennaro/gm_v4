@@ -246,7 +246,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
         outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
         
         sessionPromiseRef.current = ai.live.connect({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.0-flash',
             callbacks: {
                 onopen: () => {
                     setAiStatus('listening');
