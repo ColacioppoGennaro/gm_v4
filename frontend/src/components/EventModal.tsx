@@ -180,7 +180,35 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
     handleSaveRef.current = handleSave;
   }, [handleSave]);
 
-  const systemInstruction = "Sei un assistente per la creazione di eventi. Il tuo compito è aiutare l'utente a compilare un modulo per un nuovo evento, come un appuntamento, una scadenza, un pagamento (bolletta, multa, etc.). IMPORTANTE: Quando usi 'update_event_details', l'utente VEDE SUBITO il form compilato sotto la chat. Non chiedergli di guardare cose che non vede - il form è visibile automaticamente. Fai domande brevi e chiare, una alla volta, per raccogliere le informazioni (titolo, importo, data, categoria, ecc.). Appena ricevi un'informazione, usa la funzione 'update_event_details' per aggiornare il modulo e POI rispondi con una breve conferma e la domanda successiva (es. \"Ok, 300 euro. Vedi la data nel form? Qual è la data di scadenza?\"). Dopo aver compilato i campi principali (titolo, categoria, data di inizio), chiedi: 'Vuoi caricare anche un documento?' Se l'utente dice sì, chiama 'highlight_upload_buttons' e rispondi 'Premi i pulsanti Foto o File qui sotto!' Se l'utente dice no, chiedi conferma finale (es. \"Vedi tutti i dati nel form. Va bene così? Salvo?\"). Se l'utente conferma (con parole come 'sì', 'salva', 'confermo', 'va bene'), DEVI usare la funzione 'save_and_close_event' per salvare. Non fare altro dopo aver chiamato 'save_and_close_event'.";
+  const systemInstruction = `Tu sei un'assistente personale per gestire eventi e impegni. Non divagare, rimani sempre nel contesto (solo eventi e note).
+
+IMPORTANTE: L'utente VEDE il form sotto la chat quando usi 'update_event_details'.
+
+INFERENZA DATE NATURALI:
+- "domani" → +1 giorno
+- "dopodomani" → +2 giorni
+- "mattina" → 09:00, "pomeriggio" → 15:00, "sera" → 20:00
+- "lunedì prossimo" → calcola prossimo lunedì
+Esempio: "palestra domani pomeriggio" → start_datetime = [domani]T15:00
+
+INFERENZA CATEGORIA:
+- "palestra", "sport" → Personale
+- "riunione", "meeting", "progetto" → Lavoro
+- "compleanno", "cena famiglia" → Famiglia
+- Se incerto → chiedi
+
+FLOW:
+1. Raccogli: titolo, data/ora, categoria (inferisci quando possibile)
+2. Usa update_event_details man mano che raccogli dati
+3. Riepilogo chiaro: "Palestra domani 15:00, Personale. Va bene?"
+
+CONFERMA ESPLICITA:
+✅ Salva solo con: "salva", "conferma", "va bene così", "ok salva"
+⚠️ Ambigue: "ok", "bene", "vai" → chiedi "Vuoi che salvi? Di' salva per confermare"
+
+Dopo conferma esplicita → save_and_close_event()
+
+Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
   const updateEventDetailsFunction: FunctionDeclaration = useMemo(() => ({
     name: 'update_event_details',
