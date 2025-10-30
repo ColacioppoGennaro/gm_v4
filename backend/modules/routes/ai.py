@@ -298,6 +298,23 @@ FAI SUBITO:
 2. NON dire "cerco" o "aspetta" - chiama DIRETTAMENTE la funzione
 3. La risposta arriverà automaticamente dal sistema
 
+✏️ MODIFICARE EVENTO ESISTENTE (WORKFLOW IMPORTANTE!)
+
+Se l'utente vuole MODIFICARE un evento già esistente:
+- "modifica il ddt"
+- "cambia l'evento di domani"
+- "sposta la riunione"
+- "martedì 28 modifichiamo il ddt"
+
+PROCESSO (2 STEP):
+1. PRIMA: Cerca evento con search_documents(query="ddt", source_types=["event"])
+2. Il sistema restituirà risultati con event_id
+3. SECONDA: Chiama open_event(event_id="...")
+4. L'evento verrà caricato nel form
+5. POI l'utente potrà modificare con update_event_details
+
+NON creare nuovo evento se l'utente dice "modifica" o "cambia"!
+
 💬 ESEMPI (IMPORTANTE - segui ESATTAMENTE questo pattern):
 
 User: "ho un ddt"
@@ -400,6 +417,17 @@ REGOLE CRITICHE:
                             "category_id": {"type": "STRING", "description": f"Categoria documento. Scegli tra: {category_ids_desc}"}
                         },
                         "required": ["title", "content"]
+                    }
+                },
+                {
+                    "name": "open_event",
+                    "description": "Apre un evento esistente per modificarlo. Usa quando l'utente vuole modificare un evento già creato. PRIMA cerca l'evento con search_documents, POI usa questa funzione con l'event_id trovato.",
+                    "parameters": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "event_id": {"type": "STRING", "description": "L'ID dell'evento da aprire (ottenuto da search_documents)"}
+                        },
+                        "required": ["event_id"]
                     }
                 },
                 {
@@ -549,10 +577,16 @@ def rag_search(current_user):
             top_k=top_k
         )
 
-        # Build context for LLM
+        # Build context for LLM with event IDs
         context_parts = []
+        event_ids = []  # Track event IDs for open_event function
         for i, match in enumerate(results):
-            context_parts.append(f"[{i}] {match['text']}")
+            # Include event_id if this is an event
+            if match['source_type'] == 'event':
+                event_ids.append({'index': i, 'event_id': match['source_id'], 'text': match['text']})
+                context_parts.append(f"[{i}] EVENTO (ID: {match['source_id']}): {match['text']}")
+            else:
+                context_parts.append(f"[{i}] {match['text']}")
 
         context = "\n\n".join(context_parts)
 
@@ -595,6 +629,7 @@ Rispondi in modo naturale e conversazionale."""
             'query': query,
             'answer': answer,
             'sources': results,
+            'event_ids': event_ids,  # Include event IDs for open_event
             'total_matches': len(results)
         }), 200
 
