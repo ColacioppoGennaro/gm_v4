@@ -582,7 +582,7 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                     } else if (fc.name === 'search_documents') {
                         console.log('[EventModal] search_documents chiamato:', fc.args);
                         try {
-                            const searchResponse = await fetch('/api/ai/search', {
+                            const searchResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/search`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',

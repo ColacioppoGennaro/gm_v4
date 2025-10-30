@@ -357,7 +357,22 @@ def create_event(current_user):
             created_event['updated_at'] = serialize_datetime(created_event['updated_at'])
         
         logger.info(f"Event created: {event_id} by user {current_user['id']}")
-        
+
+        # Vectorize event for RAG search
+        try:
+            from modules.services.embedding_service import EmbeddingService
+            EmbeddingService.vectorize_event(event_id, {
+                'title': title,
+                'description': description,
+                'amount': amount,
+                'category_name': created_event.get('category_name'),
+                'start_datetime': start_datetime
+            })
+            logger.info(f"Event vectorized: {event_id}")
+        except Exception as e:
+            logger.warning(f"Failed to vectorize event: {str(e)}")
+            # Don't fail the request if vectorization fails
+
         # Sync with Google Calendar if connected
         if current_user.get('google_calendar_connected'):
             try:
@@ -514,7 +529,22 @@ def update_event(current_user, event_id):
         updated_event['updated_at'] = serialize_datetime(updated_event['updated_at'])
         
         logger.info(f"Event updated: {event_id} by user {current_user['id']}")
-        
+
+        # Re-vectorize event for RAG search
+        try:
+            from modules.services.embedding_service import EmbeddingService
+            EmbeddingService.vectorize_event(event_id, {
+                'title': updated_event.get('title'),
+                'description': updated_event.get('description'),
+                'amount': updated_event.get('amount'),
+                'category_name': updated_event.get('category_name'),
+                'start_datetime': updated_event.get('start_datetime')
+            })
+            logger.info(f"Event re-vectorized: {event_id}")
+        except Exception as e:
+            logger.warning(f"Failed to re-vectorize event: {str(e)}")
+            # Don't fail the request if vectorization fails
+
         # Sync with Google Calendar if connected
         if current_user.get('google_calendar_connected') and updated_event.get('google_event_id'):
             try:
