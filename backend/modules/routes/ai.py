@@ -725,3 +725,62 @@ def vectorize_event_endpoint(current_user):
     except Exception as e:
         logger.error(f"Vectorize event error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+@ai_bp.route('/create-document', methods=['POST'])
+@require_auth
+def create_document_endpoint(current_user):
+    """
+    Create and vectorize a simple document/note
+
+    POST /api/ai/create-document
+    {
+        "title": "Note title",
+        "content": "Note content",
+        "category_id": "uuid" // optional
+    }
+    """
+    try:
+        from modules.services.db import db
+        from modules.services.embedding_service import EmbeddingService
+        from modules.utils import generate_uuid
+
+        data = request.get_json()
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        category_id = data.get('category_id')
+
+        if not title or not content:
+            return jsonify({'error': 'Title and content are required'}), 400
+
+        # Create document ID
+        document_id = generate_uuid()
+
+        # Save to documents table
+        query = """
+            INSERT INTO documents
+            (id, user_id, title, content, category_id, uploaded_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+        """
+
+        db.execute_query(
+            query,
+            (document_id, current_user['id'], title, content, category_id),
+            fetch_all=False
+        )
+
+        # Vectorize for RAG search
+        full_text = f"{title}\n\n{content}"
+        EmbeddingService.vectorize_document(document_id, full_text)
+
+        logger.info(f"Created and vectorized document {document_id} for user {current_user['id']}")
+
+        return jsonify({
+            'success': True,
+            'document_id': document_id,
+            'title': title
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Create document error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
