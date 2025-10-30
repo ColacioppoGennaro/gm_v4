@@ -375,7 +375,7 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                                     },
                                     body: JSON.stringify({
                                         query: fc.args.query,
@@ -586,7 +586,7 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                                 },
                                 body: JSON.stringify({
                                     query: fc.args.query,
@@ -619,7 +619,7 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                                 },
                                 body: JSON.stringify({
                                     title: fc.args.title,
@@ -655,7 +655,7 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                             // Fetch event data
                             const eventResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/events/${event_id}`, {
                                 headers: {
-                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
                                 }
                             });
 
