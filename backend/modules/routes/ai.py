@@ -442,6 +442,36 @@ REGOLE CRITICHE:
 
                     logger.info(f"AI response - text: '{text_response}', function_calls: {len(function_calls)}")
 
+                    # FALLBACK: Se Gemini chiama funzione ma non include testo, generiamo conferma automatica
+                    if function_calls and not text_response:
+                        # Genera messaggio di conferma basato sulla funzione chiamata
+                        for fc in function_calls:
+                            if fc.get('name') == 'update_event_details':
+                                args = fc.get('args', {})
+                                title = args.get('title', 'evento')
+                                # Estrai data/ora leggibile
+                                start_dt = args.get('start_datetime', '')
+                                if start_dt:
+                                    try:
+                                        from datetime import datetime
+                                        dt = datetime.fromisoformat(start_dt.replace('Z', '+00:00'))
+                                        date_str = dt.strftime('%d/%m alle %H:%M')
+                                    except:
+                                        date_str = 'la data indicata'
+                                else:
+                                    date_str = 'oggi'
+
+                                text_response = f"Ok! Ho inserito '{title}' per {date_str}. Va bene?"
+                                logger.info(f"Generated fallback confirmation: {text_response}")
+                                break
+                            elif fc.get('name') == 'save_and_close_event':
+                                text_response = "Salvato!"
+                                logger.info(f"Generated fallback confirmation: {text_response}")
+                                break
+                            elif fc.get('name') == 'search_documents':
+                                # Per search, la risposta arriva dal sistema RAG, non generiamo nulla
+                                pass
+
                     return jsonify({
                         'success': True,
                         'text': text_response,
