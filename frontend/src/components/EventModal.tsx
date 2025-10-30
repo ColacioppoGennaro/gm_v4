@@ -523,21 +523,43 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
                     } else if (fc.name === 'save_and_close_event') {
                         console.log('[EventModal] save_and_close_event chiamato!');
-                        try {
-                            // Mostra messaggio di conferma PRIMA di salvare
-                            setConversation(prev => [...prev, { role: 'ai', content: 'Salvato!' }]);
 
+                        // Mostra messaggio "Salvataggio in corso..."
+                        setConversation(prev => [...prev, { role: 'ai', content: '💾 Salvataggio in corso...' }]);
+
+                        try {
+                            // PRIMA salva
                             await handleSaveRef.current();
-                            console.log('[EventModal] Salvataggio completato, chiudo finestra...');
+                            console.log('[EventModal] ✅ Salvataggio completato con successo');
+
+                            // DOPO il salvataggio riuscito, aggiorna il messaggio
+                            setConversation(prev => {
+                                const newConv = [...prev];
+                                newConv[newConv.length - 1] = { role: 'ai', content: '✅ Salvato con successo!' };
+                                return newConv;
+                            });
+
                             setAiStatus('idle');
 
-                            // Aspetta un attimo per far vedere il messaggio, poi chiudi
+                            // Chiudi SOLO se salvataggio riuscito
                             setTimeout(() => {
                                 onClose();
-                            }, 500);
+                            }, 800);
                         } catch (error) {
-                            console.error('[EventModal] Errore durante save_and_close_event:', error);
-                            setConversation(prev => [...prev, { role: 'ai', content: 'Errore durante il salvataggio. Riprova.' }]);
+                            console.error('[EventModal] ❌ Errore durante save_and_close_event:', error);
+
+                            // Aggiorna messaggio con errore
+                            setConversation(prev => {
+                                const newConv = [...prev];
+                                newConv[newConv.length - 1] = {
+                                    role: 'ai',
+                                    content: `❌ Errore nel salvataggio: ${error instanceof Error ? error.message : 'Riprova'}`
+                                };
+                                return newConv;
+                            });
+
+                            setAiStatus('idle');
+                            // NON chiudere la finestra se c'è errore!
                         }
                         return;
 
