@@ -1,4 +1,5 @@
 // @ts-nocheck - Temporary: Disable type checking for Gemini Live API migration
+// Version: 2.0.0 - Complete search_documents implementation + AI instruction rewrite
 import React, { useState, useEffect, useRef, useMemo, ChangeEvent, useCallback } from 'react';
 import { Event, Category, Recurrence, EventStatus } from '../types';
 import { Icons } from './Icons';
@@ -92,14 +93,14 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
       baseDate.setHours(9, 0, 0, 0);
     }
 
-    // Base structure for a new event
+    // Base structure for a new event (v2.0.0)
     const defaultNewEvent = {
       title: '',
       start_datetime: toLocalISOString(baseDate),
       end_datetime: toLocalISOString(new Date(baseDate.getTime() + 60 * 60 * 1000)), // +1 ora
       amount: undefined,
       category_id: categories[0]?.id || '',
-      reminders: [],
+      reminders: [], // No default reminders unless explicitly requested
       description: '',
       recurrence: 'none' as Recurrence,
       color: undefined,
@@ -200,7 +201,8 @@ INFERENZA CATEGORIA:
 FLOW:
 1. Raccogli: titolo, data/ora, categoria (inferisci quando possibile)
 2. Usa update_event_details man mano che raccogli dati
-3. Riepilogo chiaro: "Palestra domani 15:00, Personale. Va bene?"
+3. CONFERMA SEMPRE quando aggiorni: "Ok, colore verde!" o "Ok!"
+4. Riepilogo chiaro: "Palestra domani 15:00, Personale. Va bene?"
 
 CONFERMA ESPLICITA:
 ✅ Salva solo con: "salva", "conferma", "va bene così", "ok salva"
@@ -353,8 +355,47 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
                             } else if (fc.name === 'search_documents') {
                                 console.log('[EventModal] search_documents chiamato (voice):', fc.args);
-                                // TODO: Implementare ricerca documenti
-                                sessionPromiseRef.current?.then(session => session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result: "Ricerca in sviluppo" } } }));
+                                fetch('/api/ai/search', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                    },
+                                    body: JSON.stringify({
+                                        query: fc.args.query,
+                                        source_types: fc.args.source_types || ['event', 'document'],
+                                        top_k: fc.args.top_k || 5
+                                    })
+                                })
+                                    .then(res => res.json())
+                                    .then(searchResult => {
+                                        console.log('[EventModal] Risultati ricerca (voice):', searchResult);
+                                        sessionPromiseRef.current?.then(session =>
+                                            session.sendToolResponse({
+                                                functionResponses: {
+                                                    id: fc.id,
+                                                    name: fc.name,
+                                                    response: {
+                                                        result: searchResult.answer || 'Nessun risultato trovato'
+                                                    }
+                                                }
+                                            })
+                                        );
+                                    })
+                                    .catch((error) => {
+                                        console.error('[EventModal] Errore durante search_documents (voice):', error);
+                                        sessionPromiseRef.current?.then(session =>
+                                            session.sendToolResponse({
+                                                functionResponses: {
+                                                    id: fc.id,
+                                                    name: fc.name,
+                                                    response: {
+                                                        result: 'Errore durante la ricerca'
+                                                    }
+                                                }
+                                            })
+                                        );
+                                    });
 
                             } else if (fc.name === 'create_document') {
                                 console.log('[EventModal] create_document chiamato (voice):', fc.args);
@@ -483,10 +524,17 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                     } else if (fc.name === 'save_and_close_event') {
                         console.log('[EventModal] save_and_close_event chiamato!');
                         try {
+                            // Mostra messaggio di conferma PRIMA di salvare
+                            setConversation(prev => [...prev, { role: 'ai', content: 'Salvato!' }]);
+
                             await handleSaveRef.current();
                             console.log('[EventModal] Salvataggio completato, chiudo finestra...');
                             setAiStatus('idle');
-                            onClose(); // Chiudi la finestra dopo il salvataggio
+
+                            // Aspetta un attimo per far vedere il messaggio, poi chiudi
+                            setTimeout(() => {
+                                onClose();
+                            }, 500);
                         } catch (error) {
                             console.error('[EventModal] Errore durante save_and_close_event:', error);
                             setConversation(prev => [...prev, { role: 'ai', content: 'Errore durante il salvataggio. Riprova.' }]);
@@ -495,19 +543,107 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
                     } else if (fc.name === 'search_documents') {
                         console.log('[EventModal] search_documents chiamato:', fc.args);
-                        // TODO: Implementare ricerca documenti
-                        setConversation(prev => [...prev, {
-                            role: 'ai',
-                            content: `🔍 Ricerca documenti: "${fc.args.query}" (in sviluppo)`
-                        }]);
+                        try {
+                            const searchResponse = await fetch('/api/ai/search', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                },
+                                body: JSON.stringify({
+                                    query: fc.args.query,
+                                    source_types: fc.args.source_types || ['event', 'document'],
+                                    top_k: fc.args.top_k || 5
+                                })
+                            });
+                            const searchResult = await searchResponse.json();
+                            console.log('[EventModal] Risultati ricerca:', searchResult);
+
+                            if (searchResult.answer) {
+                                setConversation(prev => [...prev, {
+                                    role: 'ai',
+                                    content: searchResult.answer
+                                }]);
+                            }
+                        } catch (error) {
+                            console.error('[EventModal] Errore durante search_documents:', error);
+                            setConversation(prev => [...prev, {
+                                role: 'ai',
+                                content: 'Errore durante la ricerca. Riprova.'
+                            }]);
+                        }
+                        return;
 
                     } else if (fc.name === 'create_document') {
                         console.log('[EventModal] create_document chiamato:', fc.args);
-                        // TODO: Implementare creazione documento
-                        setConversation(prev => [...prev, {
-                            role: 'ai',
-                            content: `📄 Creazione documento: "${fc.args.title}" (in sviluppo)`
-                        }]);
+                        try {
+                            const docResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/ai/create-document`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                },
+                                body: JSON.stringify({
+                                    title: fc.args.title,
+                                    content: fc.args.content,
+                                    category_id: fc.args.category_id
+                                })
+                            });
+
+                            const docResult = await docResponse.json();
+
+                            if (docResult.success) {
+                                setConversation(prev => [...prev, {
+                                    role: 'ai',
+                                    content: `✅ Appunto salvato: "${docResult.title}"`
+                                }]);
+                            } else {
+                                throw new Error(docResult.error);
+                            }
+                        } catch (error) {
+                            console.error('[EventModal] Errore durante create_document:', error);
+                            setConversation(prev => [...prev, {
+                                role: 'ai',
+                                content: 'Errore nel salvare l\'appunto. Riprova.'
+                            }]);
+                        }
+                        return;
+
+                    } else if (fc.name === 'open_event') {
+                        console.log('[EventModal] open_event chiamato:', fc.args);
+                        const event_id = fc.args.event_id;
+
+                        try {
+                            // Fetch event data
+                            const eventResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/events/${event_id}`, {
+                                headers: {
+                                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                                }
+                            });
+
+                            if (!eventResponse.ok) {
+                                throw new Error('Event not found');
+                            }
+
+                            const eventData = await eventResponse.json();
+                            console.log('[EventModal] Evento caricato:', eventData);
+
+                            // Load event into form
+                            setFormData(eventData);
+                            setShowForm(true);
+
+                            setConversation(prev => [...prev, {
+                                role: 'ai',
+                                content: `Ok! Ho aperto "${eventData.title}". Cosa vuoi modificare?`
+                            }]);
+                        } catch (error) {
+                            console.error('[EventModal] Errore durante open_event:', error);
+                            setConversation(prev => [...prev, {
+                                role: 'ai',
+                                content: 'Non ho trovato questo evento. Puoi essere più specifico?'
+                            }]);
+                        }
+                        return;
 
                     } else if (fc.name === 'highlight_upload_buttons') {
                         console.log('[EventModal] highlight_upload_buttons chiamato');
