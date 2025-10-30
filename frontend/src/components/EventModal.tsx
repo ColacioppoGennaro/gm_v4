@@ -152,24 +152,40 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
 
   const handleSave = useCallback(async () => {
     const currentFormData = formDataRef.current;
+
+    console.log('[EventModal] handleSave called with formData:', currentFormData);
+
+    // Validazione campi obbligatori
     if (!currentFormData.title || !currentFormData.category_id || !currentFormData.start_datetime) {
-        console.warn("Salvataggio abortito, campi obbligatori mancanti.", { currentFormData });
+        const missingFields = [];
+        if (!currentFormData.title) missingFields.push('titolo');
+        if (!currentFormData.category_id) missingFields.push('categoria');
+        if (!currentFormData.start_datetime) missingFields.push('data');
+
+        const errorMsg = `Campi obbligatori mancanti: ${missingFields.join(', ')}`;
+        console.error('[EventModal] Salvataggio abortito:', errorMsg, { currentFormData });
+        throw new Error(errorMsg);  // ← Lancia errore invece di return silenzioso!
+    }
+
+    if (isSaving) {
+        console.warn('[EventModal] Salvataggio già in corso, skip');
         return;
     }
-    if (isSaving) return;
+
     setIsSaving(true);
     const submissionData = {
         ...currentFormData,
         start_datetime: new Date(currentFormData.start_datetime!).toISOString(),
         end_datetime: currentFormData.end_datetime ? new Date(currentFormData.end_datetime).toISOString() : undefined,
     };
+
     try {
-        console.log('[EventModal] Calling onSave...', submissionData);
+        console.log('[EventModal] Calling onSave with data:', submissionData);
         await onSave(submissionData);
-        console.log('[EventModal] onSave completed successfully');
-        // Non chiudiamo qui - lasciamo che il parent lo faccia dopo aver aggiornato lo state
+        console.log('[EventModal] ✅ onSave completed successfully');
     } catch (error) {
-        console.error("Errore nel salvataggio dell'evento:", error);
+        console.error('[EventModal] ❌ Errore nel salvataggio dell\'evento:', error);
+        throw error;  // ← Rilancia l'errore per il catch esterno
     } finally {
         console.log('[EventModal] Setting isSaving to false');
         setIsSaving(false);
