@@ -10,6 +10,7 @@ import os
 import base64
 import json
 import logging
+from datetime import datetime
 
 ai_bp = Blueprint('ai', __name__)
 logger = logging.getLogger(__name__)
