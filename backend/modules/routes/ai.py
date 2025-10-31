@@ -456,8 +456,15 @@ NON scrivere mai nomi di funzioni nel testo all'utente - chiamale solo in backgr
                     raise
 
     except Exception as e:
+        import traceback
+        error_traceback = traceback.format_exc()
         logger.error(f"AI chat error: {e}", exc_info=True)
-        return jsonify({'error': 'Si è verificato un errore. Riprova.', 'details': str(e)}), 500
+        return jsonify({
+            'error': 'Si è verificato un errore. Riprova.',
+            'details': str(e),
+            'type': type(e).__name__,
+            'traceback': error_traceback
+        }), 500
 
 
 @ai_bp.route('/search', methods=['POST'])
