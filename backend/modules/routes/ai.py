@@ -18,6 +18,24 @@ logger = logging.getLogger(__name__)
 # Gemini API key from environment (server-side only)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
+@ai_bp.route('/test-datetime', methods=['GET'])
+def test_datetime():
+    """Test endpoint to verify datetime import"""
+    try:
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        return jsonify({
+            'status': 'ok',
+            'datetime_works': True,
+            'current_time': current_time,
+            'message': 'datetime import is working!'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'datetime_works': False,
+            'error': str(e)
+        }), 500
+
 @ai_bp.route('/analyze-document', methods=['POST'])
 @require_auth
 def analyze_document(current_user):
