@@ -10,7 +10,7 @@ import os
 import base64
 import json
 import logging
-from datetime import datetime
+import datetime as dt_module
 
 ai_bp = Blueprint('ai', __name__)
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 def test_datetime():
     """Test endpoint to verify datetime import"""
     try:
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_time = dt_module.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         return jsonify({
             'status': 'ok',
             'datetime_works': True,
@@ -213,10 +213,10 @@ def ai_chat(current_user):
 
         # System instruction - SIMPLIFIED (essentials only)
         try:
-            current_datetime_str = datetime.now().strftime('%Y-%m-%d %H:%M')
-            logger.info(f"datetime.now() works! Current time: {current_datetime_str}")
+            current_datetime_str = dt_module.datetime.now().strftime('%Y-%m-%d %H:%M')
+            logger.info(f"dt_module.datetime.now() works! Current time: {current_datetime_str}")
         except Exception as dt_error:
-            logger.error(f"ERROR with datetime.now(): {dt_error}")
+            logger.error(f"ERROR with dt_module.datetime.now(): {dt_error}")
             return jsonify({'error': f'datetime error: {str(dt_error)}', 'details': str(dt_error)}), 500
 
         system_instruction = f"""Sei un assistente per eventi. Usa SOLO le funzioni disponibili.
