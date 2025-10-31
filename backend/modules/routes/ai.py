@@ -135,11 +135,17 @@ def ai_chat(current_user):
     Uses Gemini with function calling
     """
     try:
+        logger.info("=== AI CHAT START ===")
+
         data = request.get_json()
+        logger.info(f"Request data keys: {data.keys() if data else 'None'}")
+
         messages = data.get('messages', [])
         user_events = data.get('events', [])  # Events from frontend
         categories = data.get('categories', []) or []  # Categories from frontend (handle None)
         form_state = data.get('form_state', {})  # Current form state so AI can see what's filled
+
+        logger.info(f"Messages count: {len(messages)}, Categories count: {len(categories)}")
 
         if not messages:
             return jsonify({'error': 'No messages provided'}), 400
@@ -203,14 +209,23 @@ def ai_chat(current_user):
         # Get category names for safe join
         category_names = ', '.join([c.get('name', '') for c in categories]) if categories else "nessuna"
 
+        logger.info("Building system instruction...")
+
         # System instruction - SIMPLIFIED (essentials only)
+        try:
+            current_datetime_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+            logger.info(f"datetime.now() works! Current time: {current_datetime_str}")
+        except Exception as dt_error:
+            logger.error(f"ERROR with datetime.now(): {dt_error}")
+            return jsonify({'error': f'datetime error: {str(dt_error)}', 'details': str(dt_error)}), 500
+
         system_instruction = f"""Sei un assistente per eventi. Usa SOLO le funzioni disponibili.
 
 {form_state_desc}
 {categories_desc}
 {events_context}
 
-DATA CORRENTE: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+DATA CORRENTE: {current_datetime_str}
 
 REGOLE CRITICHE:
 1. OGNI chiamata a update_event_details DEVE includere TUTTI i campi gia raccolti (title, start_datetime, amount, reminders, color, category_id)
