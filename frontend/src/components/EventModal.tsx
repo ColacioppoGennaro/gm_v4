@@ -144,6 +144,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, event, categor
   const [isSaving, setIsSaving] = useState(false);
   const [showForm, setShowForm] = useState(false); // Form nascosto all'inizio in AI mode
   const [highlightUploadButtons, setHighlightUploadButtons] = useState(false); // Highlight animation for upload buttons
+  const [lastSearchEventIds, setLastSearchEventIds] = useState<any[]>([]); // Store event IDs from last search
 
   const formDataRef = useRef(formData);
   useEffect(() => {
@@ -597,6 +598,11 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
                             const searchResult = await searchResponse.json();
                             console.log('[EventModal] Risultati ricerca:', searchResult);
 
+                            // Store event IDs for later use with open_event
+                            if (searchResult.event_ids) {
+                                setLastSearchEventIds(searchResult.event_ids);
+                            }
+
                             if (searchResult.answer) {
                                 setConversation(prev => [...prev, {
                                     role: 'ai',
@@ -649,7 +655,16 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
                     } else if (fc.name === 'open_event') {
                         console.log('[EventModal] open_event chiamato:', fc.args);
-                        const event_id = fc.args.event_id;
+                        let event_id = fc.args.event_id;
+
+                        // If AI passed an index (like "0"), convert to real event_id
+                        if (event_id && /^\d+$/.test(event_id)) {
+                            const index = parseInt(event_id);
+                            if (lastSearchEventIds[index]) {
+                                event_id = lastSearchEventIds[index].event_id;
+                                console.log(`[EventModal] Converted index ${index} to event_id: ${event_id}`);
+                            }
+                        }
 
                         try {
                             // Fetch event data

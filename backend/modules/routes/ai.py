@@ -272,11 +272,13 @@ User: "ok"
 AI chiama: save_and_close_event()
 
 CERCARE: search_documents(query="...", source_types=["event", "document"])
+IMPORTANTE: La risposta ti dira "EVENTO (ID: abc-123)" - usa quell'ID COMPLETO per open_event!
 
 MODIFICARE ESISTENTE:
 1. search_documents per trovare evento
-2. open_event(event_id="...") per caricarlo
-3. update_event_details per modificare
+2. Leggi l'ID dall'output: "[0] EVENTO (ID: abc-123-def)"
+3. open_event(event_id="abc-123-def") usando l'ID COMPLETO, NON l'indice [0]!
+4. update_event_details per modificare
 
 NON scrivere mai nomi di funzioni nel testo all'utente - chiamale solo in background!
 """
