@@ -228,6 +228,10 @@ def ai_chat(current_user):
 DATA CORRENTE: {current_datetime_str}
 
 REGOLE CRITICHE:
+0. QUANDO L'UTENTE DICE QUALSIASI COSA CHE SEMBRA UN EVENTO (ddt, fattura, riunione, appuntamento, promemoria, ecc):
+   - CHIAMA SUBITO update_event_details con almeno title e start_datetime
+   - NON rispondere solo con testo! DEVI chiamare la funzione!
+   - Inferisci data (oggi se non specificata) e categoria
 1. OGNI chiamata a update_event_details DEVE includere TUTTI i campi gia raccolti (title, start_datetime, amount, reminders, color, category_id)
 2. NON resettare MAI i campi - usa SEMPRE valori precedenti + nuovi
 3. Inferenza date:
