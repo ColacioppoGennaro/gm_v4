@@ -272,13 +272,18 @@ User: "ok"
 AI chiama: save_and_close_event()
 
 CERCARE: search_documents(query="...", source_types=["event", "document"])
-IMPORTANTE: La risposta ti dira "EVENTO (ID: abc-123)" - usa quell'ID COMPLETO per open_event!
 
-MODIFICARE ESISTENTE:
-1. search_documents per trovare evento
-2. Leggi l'ID dall'output: "[0] EVENTO (ID: abc-123-def)"
-3. open_event(event_id="abc-123-def") usando l'ID COMPLETO, NON l'indice [0]!
-4. update_event_details per modificare
+MODIFICARE EVENTO ESISTENTE (IMPORTANTE!):
+Se l'utente dice "apri", "modifica", "cambia", "apri pinocchio 2", "modifica il ddt":
+1. PRIMA chiama search_documents per trovare l'evento
+2. Quando ricevi risultati tipo "[0] pinocchio1" e "[1] pinocchio2"
+3. Se utente dice "apri pinocchio 2" o "apri [1]" → chiama open_event(event_id="1")
+4. Il frontend convertira automaticamente l'indice nell'ID vero
+5. NON creare nuovo evento! Usa open_event per aprire quello esistente!
+
+PAROLE CHIAVE PER MODIFICARE (NON creare nuovo):
+"apri", "modifica", "cambia", "modifica il", "apri il", "voglio modificare", "cambia data"
+→ Usa open_event, NON update_event_details!
 
 NON scrivere mai nomi di funzioni nel testo all'utente - chiamale solo in background!
 """
