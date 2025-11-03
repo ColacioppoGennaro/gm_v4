@@ -655,14 +655,19 @@ Documenti: chiedi se vuole allegarli, poi usa highlight_upload_buttons`;
 
                     } else if (fc.name === 'open_event') {
                         console.log('[EventModal] open_event chiamato:', fc.args);
+                        console.log('[EventModal] lastSearchEventIds:', lastSearchEventIds);
                         let event_id = fc.args.event_id;
 
                         // If AI passed an index (like "0"), convert to real event_id
                         if (event_id && /^\d+$/.test(event_id)) {
                             const index = parseInt(event_id);
+                            console.log(`[EventModal] AI passed index: ${index}, searching in lastSearchEventIds...`);
+                            console.log(`[EventModal] lastSearchEventIds[${index}]:`, lastSearchEventIds[index]);
                             if (lastSearchEventIds[index]) {
                                 event_id = lastSearchEventIds[index].event_id;
-                                console.log(`[EventModal] Converted index ${index} to event_id: ${event_id}`);
+                                console.log(`[EventModal] ✅ Converted index ${index} to event_id: ${event_id}`);
+                            } else {
+                                console.error(`[EventModal] ❌ No event_id found for index ${index}! lastSearchEventIds:`, lastSearchEventIds);
                             }
                         }
 
