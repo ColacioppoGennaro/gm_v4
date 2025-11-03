@@ -5,7 +5,7 @@ Handles AI-powered features using server-side Gemini API key
 
 from flask import Blueprint, request, jsonify
 from modules.utils.auth import require_auth
-# from modules.services.embedding_service import EmbeddingService  # TEMPORARY: Disabled until dependencies installed
+from modules.services.embedding_service import EmbeddingService
 import os
 import base64
 import json
